@@ -28,6 +28,7 @@ const STATUS1: u8 = 0x41;
 const STATUS0A: u8 = 0x3c;
 #[cfg(not(feature = "async"))]
 const STATUS1A: u8 = 0x3d;
+#[cfg(not(feature = "async"))]
 const STATUS0: u8 = 0x40;
 #[cfg(not(feature = "async"))]
 const INTERRUPTA: u8 = 0x3e;
@@ -217,7 +218,7 @@ fn status_snapshot_has_no_clear_on_read_side_effect() {
 fn transmit_encodes_sop_packet_and_crc_tokens() {
     let packet = PdPacket::new(SopType::Sop, 1 << 12, &[1, 2, 3, 4]).unwrap();
     let expectations = [
-        write_read(STATUS1, 0),
+        write_read(STATUS1, 0x08),
         I2cTransaction::write(
             DEFAULT_ADDRESS,
             vec![
@@ -237,7 +238,7 @@ fn transmit_encodes_sop_packet_and_crc_tokens() {
 fn transmit_encodes_sop_prime_with_its_distinct_ordered_set() {
     let packet = PdPacket::new(SopType::SopPrime, 0, &[]).unwrap();
     let expectations = [
-        write_read(STATUS1, 0),
+        write_read(STATUS1, 0x08),
         I2cTransaction::write(
             DEFAULT_ADDRESS,
             vec![
@@ -256,7 +257,7 @@ fn transmit_encodes_sop_prime_with_its_distinct_ordered_set() {
 #[test]
 fn hard_reset_uses_reset_tokens_and_txon_command() {
     let expectations = [
-        write_read(STATUS1, 0),
+        write_read(STATUS1, 0x08),
         I2cTransaction::write(DEFAULT_ADDRESS, vec![FIFO, 0x15, 0x15, 0x15, 0x16, 0xa1]),
     ];
     let bus = I2cMock::new(&expectations);
@@ -271,7 +272,6 @@ fn hard_reset_uses_reset_tokens_and_txon_command() {
 fn receive_parses_a_full_physical_packet_and_discards_crc() {
     let expectations = [
         write_read(STATUS1, 0),
-        write_read(STATUS0, 0x10),
         I2cTransaction::write_read(DEFAULT_ADDRESS, vec![FIFO], vec![0xe0, 0x00, 0x10]),
         I2cTransaction::write_read(DEFAULT_ADDRESS, vec![FIFO], vec![1, 2, 3, 4, 0, 0, 0, 0]),
     ];
@@ -290,7 +290,6 @@ fn receive_parses_a_full_physical_packet_and_discards_crc() {
 fn receive_classifies_sop_prime_from_its_defined_high_bits() {
     let expectations = [
         write_read(STATUS1, 0),
-        write_read(STATUS0, 0x10),
         I2cTransaction::write_read(DEFAULT_ADDRESS, vec![FIFO], vec![0xcf, 0, 0]),
         I2cTransaction::write_read(DEFAULT_ADDRESS, vec![FIFO], vec![0, 0, 0, 0]),
     ];
@@ -306,7 +305,6 @@ fn receive_classifies_sop_prime_from_its_defined_high_bits() {
 fn receive_rejects_malformed_sop_token() {
     let expectations = [
         write_read(STATUS1, 0),
-        write_read(STATUS0, 0x10),
         I2cTransaction::write_read(DEFAULT_ADDRESS, vec![FIFO], vec![0x40, 0, 0]),
     ];
     let bus = I2cMock::new(&expectations);
@@ -330,18 +328,10 @@ fn fifo_status_errors_are_observable_before_packet_io() {
     );
     driver.release().done();
 
-    let bus = I2cMock::new(&[write_read(STATUS1, 0), write_read(STATUS0, 0)]);
-    let mut driver = Fusb302::new(bus);
-    assert_eq!(
-        driver.receive(),
-        Err(Error::Receive(ReceiveError::CrcCheckFailed))
-    );
-    driver.release().done();
-
     let packet = PdPacket::new(SopType::Sop, 0, &[]).unwrap();
-    let bus = I2cMock::new(&[write_read(STATUS1, 0x04)]);
+    let bus = I2cMock::new(&[write_read(STATUS1, 0)]);
     let mut driver = Fusb302::new(bus);
-    assert_eq!(driver.transmit(&packet), Err(Error::TransmitFifoFull));
+    assert_eq!(driver.transmit(&packet), Err(Error::TransmitFifoBusy));
     driver.release().done();
 }
 
@@ -376,7 +366,7 @@ fn async_driver_has_the_same_transaction_semantics() {
             I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL1, 0]),
             write_read(CONTROL3, 0),
             I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL3, 0]),
-            write_read(STATUS1, 0),
+            write_read(STATUS1, 0x08),
             I2cTransaction::write(
                 DEFAULT_ADDRESS,
                 vec![
@@ -384,7 +374,6 @@ fn async_driver_has_the_same_transaction_semantics() {
                 ],
             ),
             write_read(STATUS1, 0),
-            write_read(STATUS0, 0x10),
             I2cTransaction::write_read(DEFAULT_ADDRESS, vec![FIFO], vec![0xe0, 0, 0]),
             I2cTransaction::write_read(DEFAULT_ADDRESS, vec![FIFO], vec![0, 0, 0, 0]),
         ];

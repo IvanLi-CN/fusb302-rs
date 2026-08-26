@@ -24,8 +24,6 @@ pub enum PacketError {
 pub enum ReceiveError {
     /// The receive FIFO overflowed before the host could consume its frame.
     FifoOverflow,
-    /// The FUSB302B reported a failed CRC check for the received frame.
-    CrcCheckFailed,
     /// The FIFO did not start with a received SOP token.
     InvalidSopToken(u8),
 }
@@ -40,8 +38,8 @@ pub enum Error<E> {
     Packet(PacketError),
     /// A received FIFO frame was malformed.
     Receive(ReceiveError),
-    /// The transmit FIFO cannot accept another physical packet.
-    TransmitFifoFull,
+    /// The transmit FIFO contains a prior physical packet.
+    TransmitFifoBusy,
 }
 
 impl<E> From<PacketError> for Error<E> {
