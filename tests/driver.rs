@@ -83,7 +83,7 @@ fn device_id_is_read_as_a_typed_fusb302b_family_value() {
 fn init_resets_then_flushes_both_fifos() {
     let expectations = [
         I2cTransaction::write(DEFAULT_ADDRESS, vec![RESET, 0x01]),
-        write_read(CONTROL0, 0x22),
+        write_read(CONTROL0, 0x32),
         I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL0, 0x62]),
         write_read(CONTROL1, 0x80),
         I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL1, 0x04]),
@@ -355,7 +355,7 @@ fn async_driver_has_the_same_transaction_semantics() {
     futures_executor::block_on(async {
         let expectations = [
             I2cTransaction::write(DEFAULT_ADDRESS, vec![RESET, 0x01]),
-            write_read(CONTROL0, 0x22),
+            write_read(CONTROL0, 0x32),
             I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL0, 0x62]),
             write_read(CONTROL1, 0x80),
             I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL1, 0x04]),

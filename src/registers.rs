@@ -138,7 +138,7 @@ pub(crate) const SWITCHES1_RW_MASK: u8 = SWITCHES1_POWER_ROLE
     | SWITCHES1_TXCC2
     | SWITCHES1_TXCC1;
 pub(crate) const CONTROL0_TX_FLUSH: u8 = 1 << 6;
-pub(crate) const CONTROL0_RW_MASK: u8 = 0b0011_1110;
+pub(crate) const CONTROL0_RW_MASK: u8 = 0b0010_1110;
 pub(crate) const CONTROL1_ENSOP2DB: u8 = 1 << 6;
 pub(crate) const CONTROL1_ENSOP1DB: u8 = 1 << 5;
 pub(crate) const CONTROL1_BIST_MODE2: u8 = 1 << 4;
