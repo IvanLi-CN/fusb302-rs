@@ -87,7 +87,7 @@ FUSB302B 是由 host software 驱动的 Type-C 与 USB-PD BMC PHY。驱动必须
 
 1. Caller creates `Fusb302`, calls `init`, then explicitly applies power/CC/BMC
    configuration or starts hardware toggle mode.
-2. Caller reads `InterruptStatus`; RX-related events are followed by an explicit
+2. Caller reads `InterruptSnapshot`; RX-related events are followed by an explicit
    packet read, so the driver never consumes FIFO data while reading interrupts.
 3. Caller sends a valid `PdPacket`; the driver serializes required FUSB302B TX
    tokens and payload bytes, then starts transmission.
@@ -112,7 +112,7 @@ FUSB302B 是由 host software 驱动的 Type-C 与 USB-PD BMC PHY。驱动必须
 | `Fusb302<I2C>` | Rust API | external | New | None | crate | embedded firmware | I2C bus owner |
 | `PdPacket` | Rust API | external | New | None | crate | PD protocol layer | one physical packet/chunk |
 | `PhyConfig` | Rust API | external | New | None | crate | PD protocol layer | explicit hardware automation |
-| `InterruptStatus` | Rust API | external | New | None | crate | firmware event loop | atomic read snapshot |
+| `InterruptSnapshot` | Rust API | external | New | None | crate | firmware event loop | atomic read snapshot |
 
 ### 契约文档（按 Kind 拆分）
 
