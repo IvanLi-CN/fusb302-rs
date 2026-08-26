@@ -65,6 +65,8 @@ FUSB302B 是由 host software 驱动的 Type-C 与 USB-PD BMC PHY。驱动必须
   single snapshot；不得分散读取导致调用者丢失 event。
 - 所有 PD automation 必须显式配置；初始化不得自动选择 CC role、VCONN、GoodCRC
   或 retry/reset policy。
+- FUSB302B-family 的 hardware-generated GoodCRC header 必须固定为 USB PD 2.0；
+  不得写入其 `SPECREV` 的保留编码。
 - 所有 register writes 必须屏蔽 reserved bits；public API 不得提供任意 register
   address writes。
 

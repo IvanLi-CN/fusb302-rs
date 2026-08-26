@@ -101,7 +101,7 @@ fn config_filters_command_and_reserved_bits_and_enables_requested_automation() {
     let expectations = [
         I2cTransaction::write(DEFAULT_ADDRESS, vec![POWER, 0x0f]),
         write_read(SWITCHES1, 0x0b),
-        I2cTransaction::write(DEFAULT_ADDRESS, vec![SWITCHES1, 0xd7]),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![SWITCHES1, 0xb7]),
         write_read(CONTROL1, 0x94),
         I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL1, 0x13]),
         write_read(CONTROL3, 0xe0),
@@ -110,7 +110,7 @@ fn config_filters_command_and_reserved_bits_and_enables_requested_automation() {
     let bus = I2cMock::new(&expectations);
     let mut driver = Fusb302::new(bus);
     let config = PhyConfig {
-        pd_revision: PdRevision::Rev30,
+        pd_revision: PdRevision::Rev20,
         power_role: PowerRole::Source,
         data_role: DataRole::Dfp,
         auto_goodcrc: true,
@@ -132,7 +132,7 @@ fn config_maps_debug_sop_masks_to_their_matching_control1_bits() {
     let expectations = [
         I2cTransaction::write(DEFAULT_ADDRESS, vec![POWER, 0x0f]),
         write_read(SWITCHES1, 0),
-        I2cTransaction::write(DEFAULT_ADDRESS, vec![SWITCHES1, 0x40]),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![SWITCHES1, 0x20]),
         write_read(CONTROL1, 0),
         I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL1, 0x60]),
         write_read(CONTROL3, 0),
@@ -361,7 +361,7 @@ fn async_driver_has_the_same_transaction_semantics() {
             I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL1, 0x04]),
             I2cTransaction::write(DEFAULT_ADDRESS, vec![POWER, 0x0f]),
             write_read(SWITCHES1, 0),
-            I2cTransaction::write(DEFAULT_ADDRESS, vec![SWITCHES1, 0x40]),
+            I2cTransaction::write(DEFAULT_ADDRESS, vec![SWITCHES1, 0x20]),
             write_read(CONTROL1, 0),
             I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL1, 0]),
             write_read(CONTROL3, 0),

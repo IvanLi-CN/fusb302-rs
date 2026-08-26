@@ -103,8 +103,6 @@ pub enum DataRole {
 pub enum PdRevision {
     /// USB PD revision 2.0.
     Rev20,
-    /// USB PD revision 3.0.
-    Rev30,
 }
 
 /// Type-C role detection mode used by FUSB302B autonomous toggling.

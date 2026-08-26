@@ -48,8 +48,9 @@ where
   error types.
 
 The crate supports Rust 1.85 and newer. `PdPacket` contains a raw USB PD
-header and up to seven 32-bit data objects (`[u8; 28]`). An Extended Message is
-represented only as one physical chunk; reassembly belongs to a protocol layer.
+header and up to seven 32-bit data objects (`[u8; 28]`). Extended Message
+reassembly belongs to a protocol layer. Hardware-generated GoodCRC uses the
+FUSB302B-supported USB PD 2.0 revision.
 
 ## License
 

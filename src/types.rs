@@ -166,7 +166,9 @@ impl RetryCount {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub struct PhyConfig {
-    /// USB PD revision encoded in transmitted PD headers.
+    /// USB PD revision encoded in hardware-generated GoodCRC headers.
+    ///
+    /// FUSB302B supports USB PD revision 2.0 only.
     pub pd_revision: PdRevision,
     /// Power role encoded in transmitted PD headers.
     pub power_role: PowerRole,
@@ -187,7 +189,7 @@ pub struct PhyConfig {
 impl Default for PhyConfig {
     fn default() -> Self {
         Self {
-            pd_revision: PdRevision::Rev30,
+            pd_revision: PdRevision::Rev20,
             power_role: PowerRole::Sink,
             data_role: DataRole::Ufp,
             auto_goodcrc: false,
