@@ -131,16 +131,28 @@ pub(crate) const SWITCHES1_DATA_ROLE: u8 = 1 << 4;
 pub(crate) const SWITCHES1_AUTO_CRC: u8 = 1 << 2;
 pub(crate) const SWITCHES1_TXCC2: u8 = 1 << 1;
 pub(crate) const SWITCHES1_TXCC1: u8 = 1;
+pub(crate) const SWITCHES1_RW_MASK: u8 = SWITCHES1_POWER_ROLE
+    | SWITCHES1_SPEC_REV_MASK
+    | SWITCHES1_DATA_ROLE
+    | SWITCHES1_AUTO_CRC
+    | SWITCHES1_TXCC2
+    | SWITCHES1_TXCC1;
 pub(crate) const CONTROL0_TX_FLUSH: u8 = 1 << 6;
+pub(crate) const CONTROL0_RW_MASK: u8 = 0b0011_1110;
 pub(crate) const CONTROL1_ENSOP2DB: u8 = 1 << 6;
 pub(crate) const CONTROL1_ENSOP1DB: u8 = 1 << 5;
+pub(crate) const CONTROL1_BIST_MODE2: u8 = 1 << 4;
 pub(crate) const CONTROL1_RX_FLUSH: u8 = 1 << 2;
 pub(crate) const CONTROL1_ENSOP2: u8 = 1 << 1;
 pub(crate) const CONTROL1_ENSOP1: u8 = 1;
+pub(crate) const CONTROL1_RW_MASK: u8 =
+    CONTROL1_ENSOP2DB | CONTROL1_ENSOP1DB | CONTROL1_BIST_MODE2 | CONTROL1_ENSOP2 | CONTROL1_ENSOP1;
 pub(crate) const CONTROL2_MODE_DFP: u8 = 0b110;
 pub(crate) const CONTROL2_MODE_UFP: u8 = 0b100;
 pub(crate) const CONTROL2_MODE_DRP: u8 = 0b010;
 pub(crate) const CONTROL2_TOGGLE: u8 = 1;
+pub(crate) const CONTROL2_RW_MASK: u8 = 0b1110_1111;
+pub(crate) const CONTROL3_BIST_TMODE: u8 = 1 << 5;
 pub(crate) const CONTROL3_AUTO_HARD_RESET: u8 = 1 << 4;
 pub(crate) const CONTROL3_AUTO_SOFT_RESET: u8 = 1 << 3;
 pub(crate) const CONTROL3_RETRY_COUNT_MASK: u8 = 0b110;
@@ -148,4 +160,7 @@ pub(crate) const CONTROL3_AUTO_RETRY: u8 = 1;
 pub(crate) const POWER_ALL: u8 = 0x0f;
 pub(crate) const RESET_PD: u8 = 1 << 1;
 pub(crate) const RESET_SW: u8 = 1;
+pub(crate) const STATUS0_CRC_CHECK: u8 = 1 << 4;
 pub(crate) const STATUS1_RX_EMPTY: u8 = 1 << 5;
+pub(crate) const STATUS1_RX_FULL: u8 = 1 << 4;
+pub(crate) const STATUS1_TX_FULL: u8 = 1 << 2;

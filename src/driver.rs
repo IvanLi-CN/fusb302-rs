@@ -10,13 +10,15 @@ use crate::{
     ReceiveSopMask, SopType, Status,
     error::{Error, ReceiveError},
     registers::{
-        CONTROL0_TX_FLUSH, CONTROL1_ENSOP1, CONTROL1_ENSOP1DB, CONTROL1_ENSOP2, CONTROL1_ENSOP2DB,
-        CONTROL1_RX_FLUSH, CONTROL2_MODE_DFP, CONTROL2_MODE_DRP, CONTROL2_MODE_UFP,
-        CONTROL2_TOGGLE, CONTROL3_AUTO_HARD_RESET, CONTROL3_AUTO_RETRY, CONTROL3_AUTO_SOFT_RESET,
-        CONTROL3_RETRY_COUNT_MASK, CcPin, CcPull, DataRole, POWER_ALL, PdRevision, PowerRole,
-        RESET_PD, RESET_SW, Register, STATUS1_RX_EMPTY, SWITCHES0_PDWN1, SWITCHES0_PDWN2,
-        SWITCHES0_PU_EN1, SWITCHES0_PU_EN2, SWITCHES0_VCONN_CC1, SWITCHES0_VCONN_CC2,
-        SWITCHES1_AUTO_CRC, SWITCHES1_DATA_ROLE, SWITCHES1_POWER_ROLE, SWITCHES1_SPEC_REV_MASK,
+        CONTROL0_RW_MASK, CONTROL0_TX_FLUSH, CONTROL1_BIST_MODE2, CONTROL1_ENSOP1,
+        CONTROL1_ENSOP1DB, CONTROL1_ENSOP2, CONTROL1_ENSOP2DB, CONTROL1_RW_MASK, CONTROL1_RX_FLUSH,
+        CONTROL2_MODE_DFP, CONTROL2_MODE_DRP, CONTROL2_MODE_UFP, CONTROL2_RW_MASK, CONTROL2_TOGGLE,
+        CONTROL3_AUTO_HARD_RESET, CONTROL3_AUTO_RETRY, CONTROL3_AUTO_SOFT_RESET,
+        CONTROL3_BIST_TMODE, CONTROL3_RETRY_COUNT_MASK, CcPin, CcPull, DataRole, POWER_ALL,
+        PdRevision, PowerRole, RESET_PD, RESET_SW, Register, STATUS0_CRC_CHECK, STATUS1_RX_EMPTY,
+        STATUS1_RX_FULL, STATUS1_TX_FULL, SWITCHES0_PDWN1, SWITCHES0_PDWN2, SWITCHES0_PU_EN1,
+        SWITCHES0_PU_EN2, SWITCHES0_VCONN_CC1, SWITCHES0_VCONN_CC2, SWITCHES1_AUTO_CRC,
+        SWITCHES1_DATA_ROLE, SWITCHES1_POWER_ROLE, SWITCHES1_RW_MASK, SWITCHES1_SPEC_REV_MASK,
         SWITCHES1_TXCC1, SWITCHES1_TXCC2, ToggleMode,
     },
 };
@@ -97,18 +99,15 @@ where
         self.write_register(Register::Power, POWER_ALL).await?;
 
         self.update_register(Register::Switches1, |value| {
-            let mut next = value
-                & !(SWITCHES1_POWER_ROLE
-                    | SWITCHES1_SPEC_REV_MASK
-                    | SWITCHES1_DATA_ROLE
-                    | SWITCHES1_AUTO_CRC);
+            let mut next = value & (SWITCHES1_TXCC1 | SWITCHES1_TXCC2);
             if matches!(config.power_role, PowerRole::Source) {
                 next |= SWITCHES1_POWER_ROLE;
             }
-            next |= match config.pd_revision {
+            let specification_revision = match config.pd_revision {
                 PdRevision::Rev20 => 0b01 << 5,
                 PdRevision::Rev30 => 0b10 << 5,
             };
+            next |= specification_revision & SWITCHES1_SPEC_REV_MASK;
             if matches!(config.data_role, DataRole::Dfp) {
                 next |= SWITCHES1_DATA_ROLE;
             }
@@ -120,24 +119,19 @@ where
         .await?;
 
         self.update_register(Register::Control1, |value| {
-            let mask = CONTROL1_ENSOP1 | CONTROL1_ENSOP2 | CONTROL1_ENSOP1DB | CONTROL1_ENSOP2DB;
-            (value & !mask) | receive_sop_bits(config.receive_sop)
+            (value & CONTROL1_BIST_MODE2) | receive_sop_bits(config.receive_sop)
         })
         .await?;
 
         self.update_register(Register::Control3, |value| {
-            let mask = CONTROL3_AUTO_HARD_RESET
-                | CONTROL3_AUTO_SOFT_RESET
-                | CONTROL3_RETRY_COUNT_MASK
-                | CONTROL3_AUTO_RETRY;
-            let mut next = value & !mask;
+            let mut next = value & CONTROL3_BIST_TMODE;
             if config.auto_hard_reset {
                 next |= CONTROL3_AUTO_HARD_RESET;
             }
             if config.auto_soft_reset {
                 next |= CONTROL3_AUTO_SOFT_RESET;
             }
-            next |= config.retry_count.control3_bits();
+            next |= config.retry_count.control3_bits() & CONTROL3_RETRY_COUNT_MASK;
             if config.retry_count.automatic() {
                 next |= CONTROL3_AUTO_RETRY;
             }
@@ -179,7 +173,7 @@ where
     /// Select the CC pin used for PD BMC transmission.
     pub async fn set_tx_cc(&mut self, pin: CcPin) -> Result<(), Error<I2C::Error>> {
         self.update_register(Register::Switches1, |value| {
-            let mut next = value & !(SWITCHES1_TXCC1 | SWITCHES1_TXCC2);
+            let mut next = value & (SWITCHES1_RW_MASK & !(SWITCHES1_TXCC1 | SWITCHES1_TXCC2));
             next |= match pin {
                 CcPin::Cc1 => SWITCHES1_TXCC1,
                 CcPin::Cc2 => SWITCHES1_TXCC2,
@@ -197,23 +191,29 @@ where
             ToggleMode::DualRole => CONTROL2_MODE_DRP,
         };
         self.update_register(Register::Control2, |value| {
-            (value & !0b111) | mode_bits | CONTROL2_TOGGLE
+            (value & CONTROL2_RW_MASK & !0b111) | mode_bits | CONTROL2_TOGGLE
         })
         .await
     }
 
     /// Stop autonomous Type-C toggling while retaining the currently selected mode bits.
     pub async fn stop_toggle(&mut self) -> Result<(), Error<I2C::Error>> {
-        self.update_register(Register::Control2, |value| value & !CONTROL2_TOGGLE)
-            .await
+        self.update_register(Register::Control2, |value| {
+            (value & CONTROL2_RW_MASK) & !CONTROL2_TOGGLE
+        })
+        .await
     }
 
     /// Flush both hardware FIFOs.
     pub async fn flush_fifos(&mut self) -> Result<(), Error<I2C::Error>> {
-        self.update_register(Register::Control0, |value| value | CONTROL0_TX_FLUSH)
-            .await?;
-        self.update_register(Register::Control1, |value| value | CONTROL1_RX_FLUSH)
-            .await
+        self.update_register(Register::Control0, |value| {
+            (value & CONTROL0_RW_MASK) | CONTROL0_TX_FLUSH
+        })
+        .await?;
+        self.update_register(Register::Control1, |value| {
+            (value & CONTROL1_RW_MASK) | CONTROL1_RX_FLUSH
+        })
+        .await
     }
 
     /// Read a non-destructive four-register status snapshot.
@@ -232,7 +232,7 @@ where
 
     /// Read all clear-on-read interrupt registers in one contiguous I2C read.
     pub async fn read_interrupts(&mut self) -> Result<InterruptSnapshot, Error<I2C::Error>> {
-        let mut registers = [0; 7];
+        let mut registers = [0; 5];
         self.i2c
             .write_read(
                 self.address,
@@ -244,12 +244,14 @@ where
         Ok(InterruptSnapshot {
             interrupt_a: registers[0],
             interrupt_b: registers[1],
-            interrupt: registers[6],
+            interrupt: registers[4],
         })
     }
 
     /// Send one physical USB PD packet through the token FIFO.
     pub async fn transmit(&mut self, packet: &PdPacket) -> Result<(), Error<I2C::Error>> {
+        self.ensure_tx_fifo_has_space().await?;
+
         let payload = packet.payload();
         let packet_len = payload.len() + 2;
         let mut frame = [0; FIFO_TX_MAX];
@@ -276,6 +278,8 @@ where
 
     /// Send an explicit USB PD hard-reset ordered set.
     pub async fn transmit_hard_reset(&mut self) -> Result<(), Error<I2C::Error>> {
+        self.ensure_tx_fifo_has_space().await?;
+
         self.write_fifo(&[
             FIFO_RESET1,
             FIFO_RESET1,
@@ -288,8 +292,15 @@ where
 
     /// Read one complete received physical packet, if the receive FIFO is non-empty.
     pub async fn receive(&mut self) -> Result<Option<PdPacket>, Error<I2C::Error>> {
-        if self.read_register(Register::Status1).await? & STATUS1_RX_EMPTY != 0 {
+        let status1 = self.read_register(Register::Status1).await?;
+        if status1 & STATUS1_RX_EMPTY != 0 {
             return Ok(None);
+        }
+        if status1 & STATUS1_RX_FULL != 0 {
+            return Err(ReceiveError::FifoOverflow.into());
+        }
+        if self.read_register(Register::Status0).await? & STATUS0_CRC_CHECK == 0 {
+            return Err(ReceiveError::CrcCheckFailed.into());
         }
 
         let mut prefix = [0; 3];
@@ -349,6 +360,13 @@ where
             .await
             .map_err(Error::I2c)
     }
+
+    async fn ensure_tx_fifo_has_space(&mut self) -> Result<(), Error<I2C::Error>> {
+        if self.read_register(Register::Status1).await? & STATUS1_TX_FULL != 0 {
+            return Err(Error::TransmitFifoFull);
+        }
+        Ok(())
+    }
 }
 
 fn receive_sop_bits(mask: ReceiveSopMask) -> u8 {
@@ -360,6 +378,9 @@ fn receive_sop_bits(mask: ReceiveSopMask) -> u8 {
         bits |= CONTROL1_ENSOP2;
     }
     if mask.bits() & ReceiveSopMask::SOP_PRIME_DEBUG.bits() != 0 {
+        bits |= CONTROL1_ENSOP1DB;
+    }
+    if mask.bits() & ReceiveSopMask::SOP_DOUBLE_PRIME_DEBUG.bits() != 0 {
         bits |= CONTROL1_ENSOP2DB;
     }
     bits

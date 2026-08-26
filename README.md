@@ -24,6 +24,21 @@ before explicitly configuring the PHY. It resets and flushes the device without
 selecting CC pull resistors, VCONN, BMC receive modes, GoodCRC, or reset/retry
 automation.
 
+When built with the `async` feature, the same API awaits `embedded-hal-async`
+I2C operations:
+
+```ignore
+async fn configure<I2C>(i2c: I2C) -> Result<(), fusb302::Error<I2C::Error>>
+where
+    I2C: embedded_hal_async::i2c::I2c,
+{
+    let mut phy = fusb302::Fusb302::new(i2c);
+    phy.init().await?;
+    phy.configure_phy(fusb302::PhyConfig::default()).await?;
+    Ok(())
+}
+```
+
 ## Features
 
 - Default: synchronous `embedded-hal` 1.0 I2C API.

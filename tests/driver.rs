@@ -3,6 +3,8 @@ use fusb302::{DEFAULT_ADDRESS, Fusb302, PacketError, PdPacket, SopType};
 
 #[cfg(not(feature = "async"))]
 use embedded_hal::i2c::ErrorKind;
+#[cfg(feature = "async")]
+use fusb302::PhyConfig;
 #[cfg(not(feature = "async"))]
 use fusb302::{
     CcPin, CcPull, DataRole, Error, PdRevision, PhyConfig, PowerRole, ReceiveError, ReceiveSopMask,
@@ -13,28 +15,22 @@ use fusb302::{
 const DEVICE_ID: u8 = 0x01;
 #[cfg(not(feature = "async"))]
 const SWITCHES0: u8 = 0x02;
-#[cfg(not(feature = "async"))]
 const SWITCHES1: u8 = 0x03;
 const CONTROL0: u8 = 0x06;
 const CONTROL1: u8 = 0x07;
 #[cfg(not(feature = "async"))]
 const CONTROL2: u8 = 0x08;
-#[cfg(not(feature = "async"))]
 const CONTROL3: u8 = 0x09;
-#[cfg(not(feature = "async"))]
 const POWER: u8 = 0x0b;
 const RESET: u8 = 0x0c;
-#[cfg(not(feature = "async"))]
 const STATUS1: u8 = 0x41;
 #[cfg(not(feature = "async"))]
 const STATUS0A: u8 = 0x3c;
 #[cfg(not(feature = "async"))]
 const STATUS1A: u8 = 0x3d;
-#[cfg(not(feature = "async"))]
 const STATUS0: u8 = 0x40;
 #[cfg(not(feature = "async"))]
 const INTERRUPTA: u8 = 0x3e;
-#[cfg(not(feature = "async"))]
 const FIFO: u8 = 0x43;
 
 fn write_read(register: u8, value: u8) -> I2cTransaction {
@@ -89,7 +85,7 @@ fn init_resets_then_flushes_both_fifos() {
         write_read(CONTROL0, 0x22),
         I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL0, 0x62]),
         write_read(CONTROL1, 0x80),
-        I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL1, 0x84]),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL1, 0x04]),
     ];
     let bus = I2cMock::new(&expectations);
     let mut driver = Fusb302::new(bus);
@@ -100,15 +96,15 @@ fn init_resets_then_flushes_both_fifos() {
 
 #[cfg(not(feature = "async"))]
 #[test]
-fn config_preserves_reserved_bits_and_only_enables_requested_automation() {
+fn config_filters_command_and_reserved_bits_and_enables_requested_automation() {
     let expectations = [
         I2cTransaction::write(DEFAULT_ADDRESS, vec![POWER, 0x0f]),
         write_read(SWITCHES1, 0x0b),
-        I2cTransaction::write(DEFAULT_ADDRESS, vec![SWITCHES1, 0xdf]),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![SWITCHES1, 0xd7]),
         write_read(CONTROL1, 0x94),
-        I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL1, 0x97]),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL1, 0x13]),
         write_read(CONTROL3, 0xe0),
-        I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL3, 0xef]),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL3, 0x2f]),
     ];
     let bus = I2cMock::new(&expectations);
     let mut driver = Fusb302::new(bus);
@@ -131,13 +127,36 @@ fn config_preserves_reserved_bits_and_only_enables_requested_automation() {
 
 #[cfg(not(feature = "async"))]
 #[test]
+fn config_maps_debug_sop_masks_to_their_matching_control1_bits() {
+    let expectations = [
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![POWER, 0x0f]),
+        write_read(SWITCHES1, 0),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![SWITCHES1, 0x40]),
+        write_read(CONTROL1, 0),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL1, 0x60]),
+        write_read(CONTROL3, 0),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL3, 0]),
+    ];
+    let bus = I2cMock::new(&expectations);
+    let mut driver = Fusb302::new(bus);
+    let config = PhyConfig {
+        receive_sop: ReceiveSopMask::SOP_PRIME_DEBUG | ReceiveSopMask::SOP_DOUBLE_PRIME_DEBUG,
+        ..PhyConfig::default()
+    };
+
+    driver.configure_phy(config).unwrap();
+    driver.release().done();
+}
+
+#[cfg(not(feature = "async"))]
+#[test]
 fn cc_vconn_and_toggle_operations_are_precise_rmw_transactions() {
     let expectations = [
         write_read(SWITCHES0, 0xa8),
         I2cTransaction::write(DEFAULT_ADDRESS, vec![SWITCHES0, 0xa9]),
         write_read(SWITCHES0, 0xa9),
         I2cTransaction::write(DEFAULT_ADDRESS, vec![SWITCHES0, 0x99]),
-        write_read(SWITCHES1, 0xf4),
+        write_read(SWITCHES1, 0xfc),
         I2cTransaction::write(DEFAULT_ADDRESS, vec![SWITCHES1, 0xf5]),
         write_read(CONTROL2, 0xe0),
         I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL2, 0xe3]),
@@ -161,7 +180,7 @@ fn interrupt_snapshot_is_one_contiguous_clear_on_read_transaction() {
     let expectations = [I2cTransaction::write_read(
         DEFAULT_ADDRESS,
         vec![INTERRUPTA],
-        vec![0x04, 0x01, 0, 0, 0, 0, 0x80],
+        vec![0x04, 0x01, 0, 0, 0x80],
     )];
     let bus = I2cMock::new(&expectations);
     let mut driver = Fusb302::new(bus);
@@ -197,12 +216,15 @@ fn status_snapshot_has_no_clear_on_read_side_effect() {
 #[test]
 fn transmit_encodes_sop_packet_and_crc_tokens() {
     let packet = PdPacket::new(SopType::Sop, 1 << 12, &[1, 2, 3, 4]).unwrap();
-    let expectations = [I2cTransaction::write(
-        DEFAULT_ADDRESS,
-        vec![
-            FIFO, 0x12, 0x12, 0x12, 0x13, 0x86, 0x00, 0x10, 1, 2, 3, 4, 0xff, 0x14, 0xfe, 0xa1,
-        ],
-    )];
+    let expectations = [
+        write_read(STATUS1, 0),
+        I2cTransaction::write(
+            DEFAULT_ADDRESS,
+            vec![
+                FIFO, 0x12, 0x12, 0x12, 0x13, 0x86, 0x00, 0x10, 1, 2, 3, 4, 0xff, 0x14, 0xfe, 0xa1,
+            ],
+        ),
+    ];
     let bus = I2cMock::new(&expectations);
     let mut driver = Fusb302::new(bus);
 
@@ -214,12 +236,15 @@ fn transmit_encodes_sop_packet_and_crc_tokens() {
 #[test]
 fn transmit_encodes_sop_prime_with_its_distinct_ordered_set() {
     let packet = PdPacket::new(SopType::SopPrime, 0, &[]).unwrap();
-    let expectations = [I2cTransaction::write(
-        DEFAULT_ADDRESS,
-        vec![
-            FIFO, 0x12, 0x12, 0x1b, 0x1b, 0x82, 0x00, 0x00, 0xff, 0x14, 0xfe, 0xa1,
-        ],
-    )];
+    let expectations = [
+        write_read(STATUS1, 0),
+        I2cTransaction::write(
+            DEFAULT_ADDRESS,
+            vec![
+                FIFO, 0x12, 0x12, 0x1b, 0x1b, 0x82, 0x00, 0x00, 0xff, 0x14, 0xfe, 0xa1,
+            ],
+        ),
+    ];
     let bus = I2cMock::new(&expectations);
     let mut driver = Fusb302::new(bus);
 
@@ -230,10 +255,10 @@ fn transmit_encodes_sop_prime_with_its_distinct_ordered_set() {
 #[cfg(not(feature = "async"))]
 #[test]
 fn hard_reset_uses_reset_tokens_and_txon_command() {
-    let expectations = [I2cTransaction::write(
-        DEFAULT_ADDRESS,
-        vec![FIFO, 0x15, 0x15, 0x15, 0x16, 0xa1],
-    )];
+    let expectations = [
+        write_read(STATUS1, 0),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![FIFO, 0x15, 0x15, 0x15, 0x16, 0xa1]),
+    ];
     let bus = I2cMock::new(&expectations);
     let mut driver = Fusb302::new(bus);
 
@@ -246,6 +271,7 @@ fn hard_reset_uses_reset_tokens_and_txon_command() {
 fn receive_parses_a_full_physical_packet_and_discards_crc() {
     let expectations = [
         write_read(STATUS1, 0),
+        write_read(STATUS0, 0x10),
         I2cTransaction::write_read(DEFAULT_ADDRESS, vec![FIFO], vec![0xe0, 0x00, 0x10]),
         I2cTransaction::write_read(DEFAULT_ADDRESS, vec![FIFO], vec![1, 2, 3, 4, 0, 0, 0, 0]),
     ];
@@ -264,6 +290,7 @@ fn receive_parses_a_full_physical_packet_and_discards_crc() {
 fn receive_classifies_sop_prime_from_its_defined_high_bits() {
     let expectations = [
         write_read(STATUS1, 0),
+        write_read(STATUS0, 0x10),
         I2cTransaction::write_read(DEFAULT_ADDRESS, vec![FIFO], vec![0xcf, 0, 0]),
         I2cTransaction::write_read(DEFAULT_ADDRESS, vec![FIFO], vec![0, 0, 0, 0]),
     ];
@@ -279,6 +306,7 @@ fn receive_classifies_sop_prime_from_its_defined_high_bits() {
 fn receive_rejects_malformed_sop_token() {
     let expectations = [
         write_read(STATUS1, 0),
+        write_read(STATUS0, 0x10),
         I2cTransaction::write_read(DEFAULT_ADDRESS, vec![FIFO], vec![0x40, 0, 0]),
     ];
     let bus = I2cMock::new(&expectations);
@@ -288,6 +316,32 @@ fn receive_rejects_malformed_sop_token() {
         driver.receive(),
         Err(Error::Receive(ReceiveError::InvalidSopToken(0x40)))
     );
+    driver.release().done();
+}
+
+#[cfg(not(feature = "async"))]
+#[test]
+fn fifo_status_errors_are_observable_before_packet_io() {
+    let bus = I2cMock::new(&[write_read(STATUS1, 0x10)]);
+    let mut driver = Fusb302::new(bus);
+    assert_eq!(
+        driver.receive(),
+        Err(Error::Receive(ReceiveError::FifoOverflow))
+    );
+    driver.release().done();
+
+    let bus = I2cMock::new(&[write_read(STATUS1, 0), write_read(STATUS0, 0)]);
+    let mut driver = Fusb302::new(bus);
+    assert_eq!(
+        driver.receive(),
+        Err(Error::Receive(ReceiveError::CrcCheckFailed))
+    );
+    driver.release().done();
+
+    let packet = PdPacket::new(SopType::Sop, 0, &[]).unwrap();
+    let bus = I2cMock::new(&[write_read(STATUS1, 0x04)]);
+    let mut driver = Fusb302::new(bus);
+    assert_eq!(driver.transmit(&packet), Err(Error::TransmitFifoFull));
     driver.release().done();
 }
 
@@ -314,12 +368,36 @@ fn async_driver_has_the_same_transaction_semantics() {
             write_read(CONTROL0, 0x22),
             I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL0, 0x62]),
             write_read(CONTROL1, 0x80),
-            I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL1, 0x84]),
+            I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL1, 0x04]),
+            I2cTransaction::write(DEFAULT_ADDRESS, vec![POWER, 0x0f]),
+            write_read(SWITCHES1, 0),
+            I2cTransaction::write(DEFAULT_ADDRESS, vec![SWITCHES1, 0x40]),
+            write_read(CONTROL1, 0),
+            I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL1, 0]),
+            write_read(CONTROL3, 0),
+            I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL3, 0]),
+            write_read(STATUS1, 0),
+            I2cTransaction::write(
+                DEFAULT_ADDRESS,
+                vec![
+                    FIFO, 0x12, 0x12, 0x12, 0x13, 0x82, 0, 0, 0xff, 0x14, 0xfe, 0xa1,
+                ],
+            ),
+            write_read(STATUS1, 0),
+            write_read(STATUS0, 0x10),
+            I2cTransaction::write_read(DEFAULT_ADDRESS, vec![FIFO], vec![0xe0, 0, 0]),
+            I2cTransaction::write_read(DEFAULT_ADDRESS, vec![FIFO], vec![0, 0, 0, 0]),
         ];
         let bus = I2cMock::new(&expectations);
         let mut driver = Fusb302::new(bus);
 
         driver.init().await.unwrap();
+        driver.configure_phy(PhyConfig::default()).await.unwrap();
+        driver
+            .transmit(&PdPacket::new(SopType::Sop, 0, &[]).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(driver.receive().await.unwrap().unwrap().sop(), SopType::Sop);
         driver.release().done();
     });
 }
