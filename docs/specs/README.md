@@ -7,4 +7,4 @@
 
 | Topic | Lifecycle | Implementation | Spec | Successor | Notes |
 | --- | --- | --- | --- | --- | --- |
-| FUSB302 PHY Driver | active | 初始实现进行中 | `fusb302-phy/SPEC.md` | - | FUSB302B-family Type-C/PD BMC PHY contract |
+| FUSB302 PHY Driver | active | initial crate scope complete | `fusb302-phy/SPEC.md` | - | FUSB302B-family Type-C/PD BMC PHY contract |
