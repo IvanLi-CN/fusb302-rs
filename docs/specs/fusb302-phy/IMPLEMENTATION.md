@@ -5,23 +5,32 @@
 
 ## Current Status
 
-- Implementation: 初始实现进行中
+- Implementation: complete for the initial crate scope
 - Lifecycle: active
 - Catalog note: FUSB302BMPX is the initial validation target.
 
 ## Coverage / rollout summary
 
-- 计划覆盖同步和 async I2C、Type-C PHY controls、BMC packet FIFO transport、
-  interrupt snapshots 和 publishable crate tooling。
+- `Fusb302<I2C>` owns the bus and supports sync and compile-time async I2C.
+- Typed Type-C controls cover CC pulls, VCONN, TX CC selection, and SRC/SNK/DRP
+  toggling.
+- `PhyConfig` requires explicit GoodCRC, retry, reset automation, and cable SOP
+  receive configuration.
+- `PdPacket` provides bounded FIFO transport with SOP type, a raw header, and
+  up to 28 payload bytes.
+- Mock transactions cover register RMW, FIFO frames, interrupt snapshots, and
+  I2C errors across the supported feature combinations.
 
 ## Remaining Gaps
 
-- 实现与 mock-based verification 尚未完成。
 - Physical hardware validation remains owned by downstream firmware.
+- Product-level USB PD policy, timers, and Extended Message reassembly remain
+  outside this crate.
 
 ## Related Changes
 
-- Initial implementation PR.
+- Initial implementation PR introduces the driver, verification, and release
+  automation.
 
 ## References
 
