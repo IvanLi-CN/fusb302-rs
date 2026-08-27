@@ -128,6 +128,30 @@ fn config_filters_command_and_reserved_bits_and_enables_requested_automation() {
 
 #[cfg(not(feature = "async"))]
 #[test]
+fn config_writes_pd3_goodcrc_revision_when_explicitly_requested() {
+    let expectations = [
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![POWER, 0x0f]),
+        write_read(SWITCHES1, 0),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![SWITCHES1, 0x44]),
+        write_read(CONTROL1, 0),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL1, 0]),
+        write_read(CONTROL3, 0),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL3, 0]),
+    ];
+    let bus = I2cMock::new(&expectations);
+    let mut driver = Fusb302::new(bus);
+    let config = PhyConfig {
+        pd_revision: PdRevision::Rev30,
+        auto_goodcrc: true,
+        ..PhyConfig::default()
+    };
+
+    driver.configure_phy(config).unwrap();
+    driver.release().done();
+}
+
+#[cfg(not(feature = "async"))]
+#[test]
 fn config_maps_debug_sop_masks_to_their_matching_control1_bits() {
     let expectations = [
         I2cTransaction::write(DEFAULT_ADDRESS, vec![POWER, 0x0f]),

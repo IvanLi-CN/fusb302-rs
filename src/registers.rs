@@ -97,12 +97,19 @@ pub enum DataRole {
     Dfp,
 }
 
-/// USB PD revision encoded in a transmitted PD header.
+/// USB PD revision encoded in hardware-generated GoodCRC headers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum PdRevision {
     /// USB PD revision 2.0.
     Rev20,
+    /// USB PD revision 3.0.
+    ///
+    /// The FUSB302B datasheet marks the corresponding `SPECREV=0b10` encoding
+    /// as "Do Not Use". It is available as an explicit opt-in for
+    /// FUSB302BMPX integrations that have validated it on their target
+    /// hardware.
+    Rev30,
 }
 
 /// Type-C role detection mode used by FUSB302B autonomous toggling.

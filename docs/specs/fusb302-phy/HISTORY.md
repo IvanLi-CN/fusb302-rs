@@ -8,6 +8,8 @@
 - The topic is active and owns the FUSB302B-family PHY driver contract.
 - The crate supports FUSB302BMPX as the initial validation target while keeping
   address selection available for documented B-family variants.
+- PD 3.0 GoodCRC encoding is retained as an explicit BMPX opt-in so a downstream
+  PPS protocol layer can preserve its existing wire behavior after HIL validation.
 
 ## Replacements / Background
 

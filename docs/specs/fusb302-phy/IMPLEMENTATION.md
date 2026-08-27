@@ -15,7 +15,8 @@
 - Typed Type-C controls cover CC pulls, VCONN, TX CC selection, and SRC/SNK/DRP
   toggling.
 - `PhyConfig` requires explicit GoodCRC, retry, reset automation, and cable SOP
-  receive configuration.
+  receive configuration. GoodCRC defaults to PD 2.0; PD 3.0 encoding is an
+  explicit FUSB302BMPX compatibility opt-in.
 - `PdPacket` provides bounded FIFO transport with SOP type, a raw header, and
   up to 28 payload bytes.
 - Mock transactions cover register RMW, FIFO frames, interrupt snapshots, and

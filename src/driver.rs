@@ -105,6 +105,7 @@ where
             }
             let specification_revision = match config.pd_revision {
                 PdRevision::Rev20 => 0b01 << 5,
+                PdRevision::Rev30 => 0b10 << 5,
             };
             next |= specification_revision & SWITCHES1_SPEC_REV_MASK;
             if matches!(config.data_role, DataRole::Dfp) {

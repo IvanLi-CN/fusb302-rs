@@ -49,8 +49,11 @@ where
 
 The crate supports Rust 1.85 and newer. `PdPacket` contains a raw USB PD
 header and up to seven 32-bit data objects (`[u8; 28]`). Extended Message
-reassembly belongs to a protocol layer. Hardware-generated GoodCRC uses the
-FUSB302B-supported USB PD 2.0 revision.
+reassembly belongs to a protocol layer. Hardware-generated GoodCRC defaults to
+the FUSB302B-supported USB PD 2.0 revision. `PdRevision::Rev30` is an explicit
+FUSB302BMPX compatibility opt-in: its `SPECREV=0b10` encoding is marked "Do Not
+Use" by the FUSB302B datasheet, so downstream firmware must validate it on its
+target hardware before enabling it.
 
 ## License
 

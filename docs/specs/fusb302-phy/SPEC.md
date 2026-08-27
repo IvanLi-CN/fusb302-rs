@@ -49,6 +49,7 @@ FUSB302B 是由 host software 驱动的 Type-C 与 USB-PD BMC PHY。驱动必须
 - [Keep PHY automation explicit and interrupts atomic](../../adr/0003-explicit-phy-automation-and-events.md)
 - [Own a protocol-neutral PD packet transport type](../../adr/0004-own-the-pd-packet-transport-type.md)
 - [Set a publishable embedded crate baseline](../../adr/0005-publishable-embedded-crate-baseline.md)
+- [Keep PD 3.0 GoodCRC encoding an explicit BMPX opt-in](../../adr/0006-explicit-bmpx-pd3-goodcrc.md)
 
 ## 需求（Requirements）
 
@@ -65,8 +66,9 @@ FUSB302B 是由 host software 驱动的 Type-C 与 USB-PD BMC PHY。驱动必须
   single snapshot；不得分散读取导致调用者丢失 event。
 - 所有 PD automation 必须显式配置；初始化不得自动选择 CC role、VCONN、GoodCRC
   或 retry/reset policy。
-- FUSB302B-family 的 hardware-generated GoodCRC header 必须固定为 USB PD 2.0；
-  不得写入其 `SPECREV` 的保留编码。
+- hardware-generated GoodCRC 必须默认使用 USB PD 2.0 的 `SPECREV=01`。`SPECREV=10`
+  只能通过显式的 `PdRevision::Rev30` opt-in 写入，且仅适用于完成目标硬件验证的
+  FUSB302BMPX integration；crate 不得将其表示为厂商支持的通用 B-family 行为。
 - 所有 register writes 必须屏蔽 reserved bits；public API 不得提供任意 register
   address writes。
 

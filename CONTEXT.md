@@ -26,6 +26,11 @@ A transport-level USB-PD message represented by SOP type, header, and payload;
 it has no negotiation or power-selection meaning in this crate.
 _Avoid_: PD contract, request policy
 
+**GoodCRC specification revision**:
+The USB-PD revision field carried by a hardware-generated GoodCRC header. It
+is distinct from a protocol layer's negotiated revision or policy decision.
+_Avoid_: negotiated PD revision
+
 **Extended-message chunk**:
 A physical PD packet carrying one fragment of an Extended Message. Reassembly
 into a complete Extended Message belongs to the PD policy/protocol layer.

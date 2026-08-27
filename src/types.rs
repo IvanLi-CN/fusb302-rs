@@ -168,7 +168,9 @@ impl RetryCount {
 pub struct PhyConfig {
     /// USB PD revision encoded in hardware-generated GoodCRC headers.
     ///
-    /// FUSB302B supports USB PD revision 2.0 only.
+    /// The default, [`PdRevision::Rev20`], uses the supported FUSB302B
+    /// encoding. [`PdRevision::Rev30`] is an explicit FUSB302BMPX
+    /// compatibility opt-in and requires target-hardware validation.
     pub pd_revision: PdRevision,
     /// Power role encoded in transmitted PD headers.
     pub power_role: PowerRole,
