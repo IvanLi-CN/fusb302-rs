@@ -1,0 +1,28 @@
+[package]
+name = "fusb302"
+version = "0.1.0"
+authors = ["Ivan Li <ivanli2048@gmail.com>"]
+edition = "2024"
+rust-version = "1.85"
+description = "no_std FUSB302B USB Type-C and USB PD BMC PHY driver"
+readme = "README.md"
+repository = "https://github.com/IvanLi-CN/fusb302-rs"
+license = "MIT OR Apache-2.0"
+keywords = ["embedded-hal", "fusb302", "type-c", "usb-pd", "no-std"]
+categories = ["embedded", "hardware-support", "no-std"]
+exclude = [".github", "docs"]
+
+[features]
+default = []
+async = ["dep:embedded-hal-async"]
+defmt = ["dep:defmt"]
+
+[dependencies]
+defmt = { version = "1", optional = true }
+embedded-hal = { version = "1", default-features = false }
+embedded-hal-async = { version = "1", optional = true, default-features = false }
+maybe-async-cfg = "0.2.5"
+
+[dev-dependencies]
+embedded-hal-mock = { version = "0.11.1", default-features = false, features = ["eh1", "embedded-hal-async"] }
+futures-executor = "0.3"
