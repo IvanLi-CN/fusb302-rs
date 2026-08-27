@@ -22,8 +22,6 @@ pub enum PacketError {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 pub enum ReceiveError {
-    /// The receive FIFO overflowed before the host could consume its frame.
-    FifoOverflow,
     /// The FIFO did not start with a received SOP token.
     InvalidSopToken(u8),
 }

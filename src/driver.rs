@@ -15,11 +15,10 @@ use crate::{
         CONTROL2_MODE_DFP, CONTROL2_MODE_DRP, CONTROL2_MODE_UFP, CONTROL2_RW_MASK, CONTROL2_TOGGLE,
         CONTROL3_AUTO_HARD_RESET, CONTROL3_AUTO_RETRY, CONTROL3_AUTO_SOFT_RESET,
         CONTROL3_BIST_TMODE, CONTROL3_RETRY_COUNT_MASK, CcPin, CcPull, DataRole, POWER_ALL,
-        PdRevision, PowerRole, RESET_PD, RESET_SW, Register, STATUS1_RX_EMPTY, STATUS1_RX_FULL,
-        STATUS1_TX_EMPTY, SWITCHES0_PDWN1, SWITCHES0_PDWN2, SWITCHES0_PU_EN1, SWITCHES0_PU_EN2,
-        SWITCHES0_VCONN_CC1, SWITCHES0_VCONN_CC2, SWITCHES1_AUTO_CRC, SWITCHES1_DATA_ROLE,
-        SWITCHES1_POWER_ROLE, SWITCHES1_RW_MASK, SWITCHES1_SPEC_REV_MASK, SWITCHES1_TXCC1,
-        SWITCHES1_TXCC2, ToggleMode,
+        PdRevision, PowerRole, RESET_PD, RESET_SW, Register, STATUS1_RX_EMPTY, STATUS1_TX_EMPTY,
+        SWITCHES0_PDWN1, SWITCHES0_PDWN2, SWITCHES0_PU_EN1, SWITCHES0_PU_EN2, SWITCHES0_VCONN_CC1,
+        SWITCHES0_VCONN_CC2, SWITCHES1_AUTO_CRC, SWITCHES1_DATA_ROLE, SWITCHES1_POWER_ROLE,
+        SWITCHES1_RW_MASK, SWITCHES1_SPEC_REV_MASK, SWITCHES1_TXCC1, SWITCHES1_TXCC2, ToggleMode,
     },
 };
 
@@ -291,13 +290,12 @@ where
     }
 
     /// Read one complete received physical packet, if the receive FIFO is non-empty.
+    ///
+    /// A full receive FIFO still contains readable packet data and is drained normally.
     pub async fn receive(&mut self) -> Result<Option<PdPacket>, Error<I2C::Error>> {
         let status1 = self.read_register(Register::Status1).await?;
         if status1 & STATUS1_RX_EMPTY != 0 {
             return Ok(None);
-        }
-        if status1 & STATUS1_RX_FULL != 0 {
-            return Err(ReceiveError::FifoOverflow.into());
         }
         let mut prefix = [0; 3];
         self.read_fifo(&mut prefix).await?;

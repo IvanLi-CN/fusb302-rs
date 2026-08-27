@@ -19,8 +19,8 @@
   explicit FUSB302BMPX compatibility opt-in.
 - `PdPacket` provides bounded FIFO transport with SOP type, a raw header, and
   up to 28 payload bytes.
-- Mock transactions cover register RMW, FIFO frames, interrupt snapshots, and
-  I2C errors across the supported feature combinations.
+- Mock transactions cover register RMW, full and non-full FIFO frames, interrupt
+  snapshots, and I2C errors across the supported feature combinations.
 
 ## Remaining Gaps
 

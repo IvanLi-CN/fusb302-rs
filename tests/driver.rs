@@ -293,9 +293,9 @@ fn hard_reset_uses_reset_tokens_and_txon_command() {
 
 #[cfg(not(feature = "async"))]
 #[test]
-fn receive_parses_a_full_physical_packet_and_discards_crc() {
+fn receive_drains_a_full_fifo_packet_and_discards_crc() {
     let expectations = [
-        write_read(STATUS1, 0),
+        write_read(STATUS1, 0x10),
         I2cTransaction::write_read(DEFAULT_ADDRESS, vec![FIFO], vec![0xe0, 0x00, 0x10]),
         I2cTransaction::write_read(DEFAULT_ADDRESS, vec![FIFO], vec![1, 2, 3, 4, 0, 0, 0, 0]),
     ];
@@ -343,15 +343,7 @@ fn receive_rejects_malformed_sop_token() {
 
 #[cfg(not(feature = "async"))]
 #[test]
-fn fifo_status_errors_are_observable_before_packet_io() {
-    let bus = I2cMock::new(&[write_read(STATUS1, 0x10)]);
-    let mut driver = Fusb302::new(bus);
-    assert_eq!(
-        driver.receive(),
-        Err(Error::Receive(ReceiveError::FifoOverflow))
-    );
-    driver.release().done();
-
+fn transmit_reports_busy_fifo_before_packet_io() {
     let packet = PdPacket::new(SopType::Sop, 0, &[]).unwrap();
     let bus = I2cMock::new(&[write_read(STATUS1, 0)]);
     let mut driver = Fusb302::new(bus);

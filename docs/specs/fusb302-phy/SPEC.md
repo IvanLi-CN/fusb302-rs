@@ -101,8 +101,10 @@ FUSB302B 是由 host software 驱动的 Type-C 与 USB-PD BMC PHY。驱动必须
 - I2C failures are returned as the caller's I2C error type.
 - Packets over 28 bytes or inconsistent with header data-object count are rejected
   before FIFO writes.
-- Invalid/unknown FIFO sequences and observable TX/RX overflow conditions are
-  reported as typed driver errors.
+- A full receive FIFO is drained as a readable packet; only malformed FIFO
+  structure is reported as a receive error.
+- Invalid/unknown FIFO sequences and a non-empty transmit FIFO are reported as
+  typed driver errors.
 - Extended Message chunks are ordinary physical packets; callers own reassembly.
 
 ## 接口契约（Interfaces & Contracts）
