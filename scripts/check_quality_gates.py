@@ -17,7 +17,7 @@ EXPECTED_JOBS = ("fmt", "clippy", "test", "docs", "msrv", "package")
 
 def main() -> int:
     gates = json.loads(GATES_PATH.read_text(encoding="utf-8"))
-    expected_checks = [f"Rust CI / {job}" for job in EXPECTED_JOBS]
+    expected_checks = list(EXPECTED_JOBS)
     if gates.get("branch") != "main":
         return fail("quality gates must target main")
     if gates.get("required_checks") != expected_checks:

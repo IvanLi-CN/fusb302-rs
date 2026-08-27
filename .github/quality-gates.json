@@ -1,12 +1,12 @@
 {
   "branch": "main",
   "required_checks": [
-    "Rust CI / fmt",
-    "Rust CI / clippy",
-    "Rust CI / test",
-    "Rust CI / docs",
-    "Rust CI / msrv",
-    "Rust CI / package"
+    "fmt",
+    "clippy",
+    "test",
+    "docs",
+    "msrv",
+    "package"
   ],
   "required_review_count": 0,
   "require_signed_commits": true
