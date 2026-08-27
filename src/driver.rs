@@ -6,19 +6,21 @@ use embedded_hal::i2c::I2c;
 use embedded_hal_async::i2c::I2c;
 
 use crate::{
-    DEFAULT_ADDRESS, DeviceId, InterruptSnapshot, MAX_PD_PAYLOAD_BYTES, PdPacket, PhyConfig,
-    ReceiveSopMask, SopType, Status,
+    DEFAULT_ADDRESS, DeviceId, InterruptMasks, InterruptSnapshot, MAX_PD_PAYLOAD_BYTES, PdPacket,
+    PhyConfig, ReceiveSopMask, SopType, Status,
     error::{Error, ReceiveError},
     registers::{
-        CONTROL0_RW_MASK, CONTROL0_TX_FLUSH, CONTROL1_BIST_MODE2, CONTROL1_ENSOP1,
-        CONTROL1_ENSOP1DB, CONTROL1_ENSOP2, CONTROL1_ENSOP2DB, CONTROL1_RW_MASK, CONTROL1_RX_FLUSH,
-        CONTROL2_MODE_DFP, CONTROL2_MODE_DRP, CONTROL2_MODE_UFP, CONTROL2_RW_MASK, CONTROL2_TOGGLE,
+        CONTROL0_HOST_CURRENT_DEFAULT, CONTROL0_HOST_CURRENT_MASK, CONTROL0_RW_MASK,
+        CONTROL0_TX_FLUSH, CONTROL1_BIST_MODE2, CONTROL1_ENSOP1, CONTROL1_ENSOP1DB,
+        CONTROL1_ENSOP2, CONTROL1_ENSOP2DB, CONTROL1_RW_MASK, CONTROL1_RX_FLUSH, CONTROL2_MODE_DFP,
+        CONTROL2_MODE_DRP, CONTROL2_MODE_UFP, CONTROL2_RW_MASK, CONTROL2_TOGGLE,
         CONTROL3_AUTO_HARD_RESET, CONTROL3_AUTO_RETRY, CONTROL3_AUTO_SOFT_RESET,
         CONTROL3_BIST_TMODE, CONTROL3_RETRY_COUNT_MASK, CcPin, CcPull, DataRole, POWER_ALL,
         PdRevision, PowerRole, RESET_PD, RESET_SW, Register, STATUS1_RX_EMPTY, STATUS1_TX_EMPTY,
-        SWITCHES0_PDWN1, SWITCHES0_PDWN2, SWITCHES0_PU_EN1, SWITCHES0_PU_EN2, SWITCHES0_VCONN_CC1,
-        SWITCHES0_VCONN_CC2, SWITCHES1_AUTO_CRC, SWITCHES1_DATA_ROLE, SWITCHES1_POWER_ROLE,
-        SWITCHES1_RW_MASK, SWITCHES1_SPEC_REV_MASK, SWITCHES1_TXCC1, SWITCHES1_TXCC2, ToggleMode,
+        SWITCHES0_MEAS_CC1, SWITCHES0_MEAS_CC2, SWITCHES0_PDWN1, SWITCHES0_PDWN2, SWITCHES0_PU_EN1,
+        SWITCHES0_PU_EN2, SWITCHES0_VCONN_CC1, SWITCHES0_VCONN_CC2, SWITCHES1_AUTO_CRC,
+        SWITCHES1_DATA_ROLE, SWITCHES1_POWER_ROLE, SWITCHES1_RW_MASK, SWITCHES1_SPEC_REV_MASK,
+        SWITCHES1_TXCC1, SWITCHES1_TXCC2, ToggleMode,
     },
 };
 
@@ -167,6 +169,40 @@ where
             next
         })
         .await
+    }
+
+    /// Select the CC pin connected to the FUSB302B measurement block, or disconnect both.
+    pub async fn set_measure_cc(&mut self, pin: Option<CcPin>) -> Result<(), Error<I2C::Error>> {
+        self.update_register(Register::Switches0, |value| {
+            let mut next = value & !(SWITCHES0_MEAS_CC1 | SWITCHES0_MEAS_CC2);
+            next |= match pin {
+                Some(CcPin::Cc1) => SWITCHES0_MEAS_CC1,
+                Some(CcPin::Cc2) => SWITCHES0_MEAS_CC2,
+                None => 0,
+            };
+            next
+        })
+        .await
+    }
+
+    /// Select the documented default `HOST_CUR` setting without changing other controls.
+    pub async fn set_host_current_default(&mut self) -> Result<(), Error<I2C::Error>> {
+        self.update_register(Register::Control0, |value| {
+            (value & !CONTROL0_HOST_CURRENT_MASK) | CONTROL0_HOST_CURRENT_DEFAULT
+        })
+        .await
+    }
+
+    /// Write all three interrupt-mask registers as one explicit PHY setting.
+    pub async fn set_interrupt_masks(
+        &mut self,
+        masks: InterruptMasks,
+    ) -> Result<(), Error<I2C::Error>> {
+        self.write_register(Register::Mask, masks.primary()).await?;
+        self.write_register(Register::MaskA, masks.extended_a())
+            .await?;
+        self.write_register(Register::MaskB, masks.extended_b())
+            .await
     }
 
     /// Select the CC pin used for PD BMC transmission.

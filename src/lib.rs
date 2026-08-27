@@ -16,7 +16,8 @@ pub use driver::Fusb302;
 pub use error::{Error, PacketError, ReceiveError};
 pub use registers::{CcPin, CcPull, DataRole, PdRevision, PowerRole, ToggleMode};
 pub use types::{
-    DeviceId, InterruptSnapshot, PdPacket, PhyConfig, ReceiveSopMask, RetryCount, SopType, Status,
+    DeviceId, InterruptMasks, InterruptSnapshot, PdPacket, PhyConfig, ReceiveSopMask, RetryCount,
+    SopType, Status,
 };
 
 /// Default 7-bit I2C address of FUSB302B-family devices.

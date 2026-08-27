@@ -3,17 +3,16 @@ use fusb302::{DEFAULT_ADDRESS, Fusb302, PacketError, PdPacket, SopType};
 
 #[cfg(not(feature = "async"))]
 use embedded_hal::i2c::ErrorKind;
-#[cfg(feature = "async")]
-use fusb302::PhyConfig;
 #[cfg(not(feature = "async"))]
 use fusb302::{
-    CcPin, CcPull, DataRole, Error, PdRevision, PhyConfig, PowerRole, ReceiveError, ReceiveSopMask,
-    RetryCount, ToggleMode,
+    CcPin, CcPull, DataRole, Error, InterruptMasks, PdRevision, PhyConfig, PowerRole, ReceiveError,
+    ReceiveSopMask, RetryCount, ToggleMode,
 };
+#[cfg(feature = "async")]
+use fusb302::{CcPin, InterruptMasks, PhyConfig};
 
 #[cfg(not(feature = "async"))]
 const DEVICE_ID: u8 = 0x01;
-#[cfg(not(feature = "async"))]
 const SWITCHES0: u8 = 0x02;
 const SWITCHES1: u8 = 0x03;
 const CONTROL0: u8 = 0x06;
@@ -21,8 +20,11 @@ const CONTROL1: u8 = 0x07;
 #[cfg(not(feature = "async"))]
 const CONTROL2: u8 = 0x08;
 const CONTROL3: u8 = 0x09;
+const MASK: u8 = 0x0a;
 const POWER: u8 = 0x0b;
 const RESET: u8 = 0x0c;
+const MASKA: u8 = 0x0e;
+const MASKB: u8 = 0x0f;
 const STATUS1: u8 = 0x41;
 #[cfg(not(feature = "async"))]
 const STATUS0A: u8 = 0x3c;
@@ -196,6 +198,29 @@ fn cc_vconn_and_toggle_operations_are_precise_rmw_transactions() {
     driver.set_tx_cc(CcPin::Cc1).unwrap();
     driver.start_toggle(ToggleMode::DualRole).unwrap();
     driver.stop_toggle().unwrap();
+    driver.release().done();
+}
+
+#[cfg(not(feature = "async"))]
+#[test]
+fn receiver_configuration_selects_measurement_host_current_and_interrupt_masks() {
+    let expectations = [
+        write_read(SWITCHES0, 0xa3),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![SWITCHES0, 0xab]),
+        write_read(CONTROL0, 0x22),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL0, 0x26]),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![MASK, 0x7d]),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![MASKA, 0xe0]),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![MASKB, 0x00]),
+    ];
+    let bus = I2cMock::new(&expectations);
+    let mut driver = Fusb302::new(bus);
+
+    driver.set_measure_cc(Some(CcPin::Cc2)).unwrap();
+    driver.set_host_current_default().unwrap();
+    driver
+        .set_interrupt_masks(InterruptMasks::new(0x7d, 0xe0, 0x00))
+        .unwrap();
     driver.release().done();
 }
 
@@ -392,6 +417,13 @@ fn async_driver_has_the_same_transaction_semantics() {
             write_read(STATUS1, 0),
             I2cTransaction::write_read(DEFAULT_ADDRESS, vec![FIFO], vec![0xe0, 0, 0]),
             I2cTransaction::write_read(DEFAULT_ADDRESS, vec![FIFO], vec![0, 0, 0, 0]),
+            write_read(SWITCHES0, 0xa3),
+            I2cTransaction::write(DEFAULT_ADDRESS, vec![SWITCHES0, 0xa7]),
+            write_read(CONTROL0, 0x22),
+            I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL0, 0x26]),
+            I2cTransaction::write(DEFAULT_ADDRESS, vec![MASK, 0x7d]),
+            I2cTransaction::write(DEFAULT_ADDRESS, vec![MASKA, 0xe0]),
+            I2cTransaction::write(DEFAULT_ADDRESS, vec![MASKB, 0x00]),
         ];
         let bus = I2cMock::new(&expectations);
         let mut driver = Fusb302::new(bus);
@@ -403,6 +435,12 @@ fn async_driver_has_the_same_transaction_semantics() {
             .await
             .unwrap();
         assert_eq!(driver.receive().await.unwrap().unwrap().sop(), SopType::Sop);
+        driver.set_measure_cc(Some(CcPin::Cc1)).await.unwrap();
+        driver.set_host_current_default().await.unwrap();
+        driver
+            .set_interrupt_masks(InterruptMasks::new(0x7d, 0xe0, 0x00))
+            .await
+            .unwrap();
         driver.release().done();
     });
 }
