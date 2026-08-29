@@ -7,7 +7,10 @@ import argparse
 import json
 import time
 
-from registry_state import lookup, RegistryError
+try:
+    from .registry_state import RegistryError, lookup
+except ImportError:
+    from registry_state import RegistryError, lookup
 
 
 def main() -> int:

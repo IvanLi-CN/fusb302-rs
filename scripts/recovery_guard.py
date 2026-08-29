@@ -13,12 +13,25 @@ import urllib.error
 import urllib.request
 from typing import Any
 
-from release_intent import cargo_version_from_toml
-from source_guard import assert_source
+try:
+    from .release_intent import cargo_version_from_toml
+    from .source_guard import assert_source
+except ImportError:
+    from release_intent import cargo_version_from_toml
+    from source_guard import assert_source
 
 
 class RecoveryError(RuntimeError):
     """Recovery inputs or external state are unsafe."""
+
+
+def validate_recovery_inputs(version: str, source_sha: str, confirmation: str) -> None:
+    if confirmation != "recover-fusb302":
+        raise RecoveryError("typed recovery confirmation is required")
+    if len(source_sha) != 40 or any(char not in "0123456789abcdef" for char in source_sha):
+        raise RecoveryError("source SHA must be a full lowercase commit SHA")
+    if not version or "/" in version or " " in version:
+        raise RecoveryError("invalid release version")
 
 
 def gh_json(endpoint: str) -> Any:
@@ -38,12 +51,7 @@ def gh_json(endpoint: str) -> Any:
 
 
 def assert_recoverable(repo: str, version: str, source_sha: str, confirmation: str) -> dict[str, str]:
-    if confirmation != "recover-fusb302":
-        raise RecoveryError("typed recovery confirmation is required")
-    if len(source_sha) != 40 or any(char not in "0123456789abcdef" for char in source_sha):
-        raise RecoveryError("source SHA must be a full lowercase commit SHA")
-    if not version or "/" in version or " " in version:
-        raise RecoveryError("invalid release version")
+    validate_recovery_inputs(version, source_sha, confirmation)
     try:
         assert_source(repo, source_sha)
     except Exception as error:

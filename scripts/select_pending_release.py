@@ -9,7 +9,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from resolve_release_intent import ResolutionError, gh_json, resolve
+try:
+    from .resolve_release_intent import ResolutionError, gh_json, resolve
+except ImportError:
+    from resolve_release_intent import ResolutionError, gh_json, resolve
 
 
 def release_exists(repo: str, tag: str) -> bool:
