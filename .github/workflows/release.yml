@@ -28,7 +28,8 @@ on:
         required: false
         type: string
 
-permissions: {}
+permissions:
+  contents: write
 
 env:
   CARGO_TERM_COLOR: always
