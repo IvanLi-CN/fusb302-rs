@@ -2,6 +2,7 @@ import unittest
 
 from scripts.check_release_contract import ContractError
 from scripts.release_intent import parse_version
+from scripts.resolve_release_intent import ResolutionError, bootstrap_intent
 
 
 class ReleaseContractTests(unittest.TestCase):
@@ -12,6 +13,29 @@ class ReleaseContractTests(unittest.TestCase):
     def test_contract_error_is_public_and_actionable(self):
         error = ContractError("release/0.1.0 points to another SHA")
         self.assertIn("another SHA", str(error))
+
+    def test_bootstrap_fallback_is_only_for_exact_no_release(self):
+        intent = bootstrap_intent(
+            ["type:none", "channel:stable"],
+            "0.1.0",
+            "0.1.0",
+            3,
+            "a" * 40,
+            "b" * 40,
+            "c" * 40,
+        )
+        self.assertTrue(intent["bootstrap"])
+        self.assertFalse(intent["publish"])
+        with self.assertRaisesRegex(ResolutionError, "only permits type:none"):
+            bootstrap_intent(
+                ["type:patch", "channel:stable"],
+                "0.1.0",
+                "0.1.1",
+                3,
+                "a" * 40,
+                "b" * 40,
+                "c" * 40,
+            )
 
 
 if __name__ == "__main__":

@@ -92,7 +92,8 @@ jobs:
                 python3 scripts/resolve_release_intent.py \
                   --repo "$REPOSITORY" \
                   --merge-sha "$WORKFLOW_RUN_SHA" \
-                  --output release-intent.json
+                  --output release-intent.json \
+                  --allow-bootstrap
                 test "$(jq -r '.publish' release-intent.json)" = "false"
               fi
               ;;
