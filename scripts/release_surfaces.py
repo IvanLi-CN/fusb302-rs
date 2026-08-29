@@ -49,6 +49,33 @@ def gh_command(arguments: list[str]) -> str:
     return result.stdout
 
 
+def ensure_tag(repo: str, tag: str, source_sha: str) -> None:
+    """Create the exact tag before calling the Releases API.
+
+    Creating a release with ``--target`` requires workflow-write permission when
+    the target commit changes workflow files. The contents-write token can still
+    create the tag, after which the release can safely resolve that immutable
+    tag without a target override.
+    """
+    try:
+        gh_command(
+            [
+                "api",
+                "--method",
+                "POST",
+                f"repos/{repo}/git/refs",
+                "-f",
+                f"ref=refs/tags/{tag}",
+                "-f",
+                f"sha={source_sha}",
+            ]
+        )
+    except SurfaceError:
+        # A concurrent or previous attempt may have created the tag already.
+        if tag_commit_sha(repo, tag) != source_sha:
+            raise
+
+
 def tag_commit_sha(repo: str, tag: str) -> str | None:
     try:
         ref = gh_json(f"repos/{repo}/git/ref/tags/{tag}")
@@ -84,6 +111,8 @@ def ensure_draft(
     existing_tag = tag_commit_sha(repo, tag)
     if existing_tag and existing_tag != source_sha:
         raise SurfaceError(f"{tag} points to {existing_tag}, expected {source_sha}")
+    if existing_tag is None:
+        ensure_tag(repo, tag, source_sha)
 
     current = release(repo, tag)
     with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False) as notes_file:
@@ -97,8 +126,6 @@ def ensure_draft(
                 tag,
                 "--repo",
                 repo,
-                "--target",
-                source_sha,
                 "--draft",
                 "--title",
                 title,
