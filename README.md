@@ -73,8 +73,8 @@ intents always require the signed Label Gate artifact.
 
 `type:none` is an exact no-release change. A maintainer may manually publish a
 merged release source by dispatching `Release` with mode `publish`, its exact
-merge SHA, and the typed confirmation `publish-fusb302`. Manual publication
-supports two version modes: `bump` selects `major`, `minor`, or `patch` and
+merge SHA. Manual publication supports two version modes: `bump` selects
+`major`, `minor`, or `patch` and
 must match the PR's `type:*` label; `exact` accepts a version string and must
 match the source `Cargo.toml`. Both modes verify signed intent, green CI and an
 unpublished version before using the same OIDC publication path.

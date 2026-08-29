@@ -40,10 +40,6 @@ on:
         description: Required for exact mode, for example 0.2.0.
         required: false
         type: string
-      confirmation:
-        description: Required only for publish; type publish-fusb302.
-        required: false
-        type: string
 
 permissions:
   contents: write
@@ -98,7 +94,6 @@ jobs:
           INPUT_VERSION_MODE: ${{ inputs.version_mode }}
           INPUT_BUMP: ${{ inputs.bump }}
           INPUT_VERSION: ${{ inputs.version }}
-          INPUT_CONFIRMATION: ${{ inputs.confirmation }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
@@ -123,7 +118,6 @@ jobs:
                 --output release-intent.json
               ;;
             workflow_dispatch:publish)
-              test "$INPUT_CONFIRMATION" = "publish-fusb302"
               python3 scripts/source_guard.py \
                 --repo "$REPOSITORY" \
                 --source-sha "$INPUT_SOURCE_SHA"
