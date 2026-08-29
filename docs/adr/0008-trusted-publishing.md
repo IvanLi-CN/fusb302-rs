@@ -12,4 +12,6 @@ receives the minimum explicit `contents: write` and read scopes it needs. Once
 one OIDC publication has completed and the release contract check has passed,
 the legacy `CARGO_REGISTRY_TOKEN` is revoked with no fallback publishing path.
 Manual publication uses the same short-lived OIDC credential and validation as
-the automatic path; it does not introduce a registry token fallback.
+the automatic path. It accepts either a semantic version bump matching the PR
+intent or an exact version matching `Cargo.toml`; it does not introduce a
+registry token fallback.

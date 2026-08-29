@@ -17,6 +17,7 @@ creates no release unit.
 Release starts only after the exact protected-main source has passed CI. A
 durable receipt, a next-pending path, and a release-failure sidecar preserve the
 release intent through burst merges and failures. A maintainer may manually
-publish a selected merged source through the same contract with an exact SHA
-and typed confirmation; it still requires signed intent, green CI, and an
-unpublished version.
+publish a selected merged source through the same contract with an exact SHA,
+typed confirmation, and either a semantic `major`/`minor`/`patch` bump matching
+the PR intent or an exact version matching `Cargo.toml`; it still requires
+signed intent, green CI, and an unpublished version.

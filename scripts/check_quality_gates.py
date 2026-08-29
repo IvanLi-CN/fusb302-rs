@@ -85,6 +85,10 @@ def main() -> int:
         return fail("Release must not use the legacy CARGO_REGISTRY_TOKEN")
     if "publish-fusb302" not in release_workflow:
         return fail("manual publish must require typed confirmation")
+    if "version_mode" not in release_workflow or "- bump" not in release_workflow or "- exact" not in release_workflow:
+        return fail("manual publish must expose bump and exact version modes")
+    if "scripts/validate_manual_publish.py" not in release_workflow:
+        return fail("manual publish inputs must be validated against immutable intent")
     if "name: Upload trusted registry tooling" not in release_workflow:
         return fail("Release must publish trusted registry tooling for registry preflight")
     if "name: Download trusted registry tooling" not in release_workflow:

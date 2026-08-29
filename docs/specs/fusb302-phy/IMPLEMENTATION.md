@@ -24,7 +24,7 @@
 - Release automation validates pull-request labels, snapshots immutable release
   intent, publishes through crates.io OIDC, and records the crate/tag/GitHub
   Release contract. Manual publication reuses the same checks for a selected
-  merged source and exact SHA.
+  merged source and exact SHA, supporting semantic bump or exact version mode.
 
 ## Remaining Gaps
 
