@@ -145,6 +145,20 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
+      - name: Stage trusted registry tooling
+        run: |
+          set -euo pipefail
+          mkdir -p "${RUNNER_TEMP}/release-tooling"
+          cp scripts/registry_state.py "${RUNNER_TEMP}/release-tooling/registry_state.py"
+
+      - name: Upload trusted registry tooling
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-tooling
+          path: ${{ runner.temp }}/release-tooling/registry_state.py
+          if-no-files-found: error
+          retention-days: 90
+
   preflight:
     name: Package release source
     needs: resolve
@@ -169,6 +183,12 @@ jobs:
           name: release-intent
           path: ${{ runner.temp }}/release-inputs
 
+      - name: Download trusted registry tooling
+        uses: actions/download-artifact@v4
+        with:
+          name: release-tooling
+          path: ${{ runner.temp }}/release-tooling
+
       - name: Verify manifest and package
         env:
           EXPECTED_VERSION: ${{ needs.resolve.outputs.version }}
@@ -184,7 +204,7 @@ jobs:
         run: |
           set -euo pipefail
           input_dir="${RUNNER_TEMP}/release-inputs"
-          python3 scripts/registry_state.py --version "$VERSION" | tee "${input_dir}/registry-state.json"
+          python3 "${RUNNER_TEMP}/release-tooling/registry_state.py" --version "$VERSION" | tee "${input_dir}/registry-state.json"
           exists="$(jq -r '.exists' "${input_dir}/registry-state.json")"
           yanked="$(jq -r '.yanked // false' "${input_dir}/registry-state.json")"
           if [[ "$yanked" == "true" ]]; then
