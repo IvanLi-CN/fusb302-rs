@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guard an Actions-only release recovery before GitHub writes."""
+"""Guard an exact-SHA release recovery before GitHub writes."""
 
 from __future__ import annotations
 

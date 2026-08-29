@@ -171,10 +171,11 @@ FUSB302B 是由 host software 驱动的 Type-C 与 USB-PD BMC PHY。驱动必须
 - Release runs automatically only after the exact `main` source passes required
   CI. It uses a durable receipt and a next-pending recovery path rather than
   relying on workflow concurrency alone.
-- crates.io publication uses Trusted Publishing OIDC. An Actions-only recovery
-  can reconcile a missing tag or GitHub Release at an exact source SHA without
-  republishing an existing crate version. Release failure notification includes
-  the release intent, source SHA, target version, and run URL.
+- crates.io publication uses Trusted Publishing OIDC with no GitHub deployment
+  environment. A maintainer can reconcile a missing tag or GitHub Release at an
+  exact source SHA without republishing an existing crate version. Release
+  failure notification includes the release intent, source SHA, target version,
+  and run URL.
 
 ## Visual Evidence
 

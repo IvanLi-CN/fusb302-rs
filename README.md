@@ -63,6 +63,8 @@ label (`major`, `minor`, `patch`, or `none`) and one `channel:*` label (`stable`
 checking out pull request code. After a successful `Rust CI` run on `main`, the
 `Release` workflow creates the `release/<version>` tag and draft GitHub Release,
 then publishes new versions to crates.io through Trusted Publishing (OIDC).
+The crates.io Trusted Publisher entry uses `release.yml` with no environment;
+the workflow itself is restricted to protected `main`.
 
 The first infrastructure merge is a narrow bootstrap: if no trusted
 `Label Gate` run exists yet, `Release` may reconstruct only a `type:none`
@@ -70,11 +72,10 @@ intent from the merged PR and immutable `Cargo.toml` contents. Publishable
 intents always require the signed Label Gate artifact.
 
 `type:none` is an exact no-release change. A failed release never republishes a
-crate: maintainers use the `Release` workflow's `recover` dispatch with the
-version, exact source SHA, and typed confirmation to complete only missing
-GitHub surfaces. The separate `Notify release failure` workflow reports the
-release unit and recovery details through the shared Telegram notifier; it
-requires the repository `SHOUTRRR_URL` secret.
+crate: maintainers manually backfill only missing GitHub surfaces at the exact
+source SHA. The separate `Notify release failure` workflow reports the release
+unit and recovery details through the shared Telegram notifier; it requires the
+repository `SHOUTRRR_URL` secret.
 
 ## License
 

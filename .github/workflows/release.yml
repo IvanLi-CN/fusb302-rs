@@ -30,7 +30,6 @@ on:
 
 permissions:
   contents: write
-  actions: write
 
 env:
   CARGO_TERM_COLOR: always
@@ -241,7 +240,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      actions: write
       pull-requests: read
     outputs:
       publish_needed: ${{ steps.mode.outputs.publish_needed }}
@@ -277,15 +275,9 @@ jobs:
             printf 'publish_needed=false\n' >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Verify recovery surface token
-        if: ${{ needs.resolve.outputs.mode == 'recover' }}
-        env:
-          RELEASE_SURFACES_TOKEN: ${{ secrets.RELEASE_SURFACES_TOKEN }}
-        run: test -n "$RELEASE_SURFACES_TOKEN"
-
       - name: Create or reuse draft release surface
         env:
-          GH_TOKEN: ${{ needs.resolve.outputs.mode == 'recover' && secrets.RELEASE_SURFACES_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           VERSION: ${{ needs.resolve.outputs.version }}
           SOURCE_SHA: ${{ needs.resolve.outputs.source_sha }}
@@ -320,8 +312,6 @@ jobs:
     needs: [resolve, preflight, prepare]
     if: ${{ needs.prepare.result == 'success' && needs.prepare.outputs.publish_needed == 'true' }}
     runs-on: ubuntu-latest
-    environment:
-      name: release
     permissions:
       contents: read
       id-token: write
@@ -385,7 +375,7 @@ jobs:
       - name: Finalize public surfaces
         if: ${{ needs.resolve.outputs.publish == 'true' }}
         env:
-          GH_TOKEN: ${{ needs.resolve.outputs.mode == 'recover' && secrets.RELEASE_SURFACES_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           VERSION: ${{ needs.resolve.outputs.version }}
           CHANNEL: ${{ needs.resolve.outputs.channel }}
