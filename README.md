@@ -64,6 +64,11 @@ checking out pull request code. After a successful `Rust CI` run on `main`, the
 `Release` workflow creates the `release/<version>` tag and draft GitHub Release,
 then publishes new versions to crates.io through Trusted Publishing (OIDC).
 
+The first infrastructure merge is a narrow bootstrap: if no trusted
+`Label Gate` run exists yet, `Release` may reconstruct only a `type:none`
+intent from the merged PR and immutable `Cargo.toml` contents. Publishable
+intents always require the signed Label Gate artifact.
+
 `type:none` is an exact no-release change. A failed release never republishes a
 crate: maintainers use the `Release` workflow's `recover` dispatch with the
 version, exact source SHA, and typed confirmation to complete only missing
