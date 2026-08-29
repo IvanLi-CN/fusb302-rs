@@ -35,3 +35,37 @@ _Avoid_: negotiated PD revision
 A physical PD packet carrying one fragment of an Extended Message. Reassembly
 into a complete Extended Message belongs to the PD policy/protocol layer.
 _Avoid_: extended-message reassembly
+
+## Release Language
+
+**Release source**:
+The verified signed `main` commit from which one public crate version is built.
+It is identified by its immutable commit SHA, not by a moving branch name.
+_Avoid_: current main, build ref
+
+**Release intent**:
+The trusted, immutable record of a merged PR's exact Cargo version and its
+validated `type:*` and `channel:*` labels. Raw PR labels are not reread as
+release input after merge.
+_Avoid_: current labels, release guess
+
+**Release unit**:
+One public crate version together with its crates.io record,
+`release/<version>` tag, and GitHub Release, all bound to one release source.
+_Avoid_: publish, tag, GitHub Release
+
+**Release channel**:
+The public class of a release unit: `stable` is a normal release, while `beta`
+and `dev` are crates.io and GitHub prereleases.
+_Avoid_: branch, deployment environment
+
+**Release recovery**:
+An idempotent Actions operation that completes or reconciles one incomplete
+release unit at an exact release source. It never republishes a version that
+already exists on crates.io.
+_Avoid_: manual tag fix, republish
+
+**Release receipt**:
+The durable evidence for a release unit or its recovery, linking the intent,
+release source, version, and public release surfaces.
+_Avoid_: workflow log

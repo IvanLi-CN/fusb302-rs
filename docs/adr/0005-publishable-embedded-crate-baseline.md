@@ -8,5 +8,7 @@ MIT OR Apache-2.0 licensing. It defaults to the FUSB302BMPX 7-bit I2C address
 
 Continuous integration checks formatting, warnings-as-errors clippy, tests,
 documentation tests, and the default, async, and defmt feature combinations.
-Publishing is a manually dispatched workflow rather than an outcome of an
-ordinary branch push.
+The original manual-publish conclusion is replaced by
+[ADR 0007](./0007-release-unit-contract.md) and
+[ADR 0008](./0008-trusted-publishing.md); the package, MSRV, license, and I2C
+address baseline above remain in effect.
