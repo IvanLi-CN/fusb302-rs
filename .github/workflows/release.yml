@@ -277,9 +277,15 @@ jobs:
             printf 'publish_needed=false\n' >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Verify recovery surface token
+        if: ${{ needs.resolve.outputs.mode == 'recover' }}
+        env:
+          RELEASE_SURFACES_TOKEN: ${{ secrets.RELEASE_SURFACES_TOKEN }}
+        run: test -n "$RELEASE_SURFACES_TOKEN"
+
       - name: Create or reuse draft release surface
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ needs.resolve.outputs.mode == 'recover' && secrets.RELEASE_SURFACES_TOKEN || github.token }}
           REPOSITORY: ${{ github.repository }}
           VERSION: ${{ needs.resolve.outputs.version }}
           SOURCE_SHA: ${{ needs.resolve.outputs.source_sha }}
@@ -379,7 +385,7 @@ jobs:
       - name: Finalize public surfaces
         if: ${{ needs.resolve.outputs.publish == 'true' }}
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ needs.resolve.outputs.mode == 'recover' && secrets.RELEASE_SURFACES_TOKEN || github.token }}
           REPOSITORY: ${{ github.repository }}
           VERSION: ${{ needs.resolve.outputs.version }}
           CHANNEL: ${{ needs.resolve.outputs.channel }}
