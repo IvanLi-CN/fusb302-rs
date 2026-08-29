@@ -14,10 +14,10 @@ crates.io package and GitHub Release; `beta` and `dev` create Cargo SemVer
 prereleases on crates.io and GitHub. `type:none` requires no version change and
 creates no release unit.
 
-Release starts only after the exact protected-main source has passed CI. A
-durable receipt, a next-pending path, and a release-failure sidecar preserve the
-release intent through burst merges and failures. A maintainer may manually
-publish a selected merged source through the same contract with an exact SHA,
-and either a semantic `major`/`minor`/`patch` bump matching the PR intent or an
-exact version matching `Cargo.toml`; it still requires signed intent, green CI,
-and an unpublished version.
+Release starts only after the exact protected-main source has passed CI. Each
+run resolves its triggering merge SHA, and a durable receipt and release-failure
+sidecar preserve the release intent through failures. A maintainer may manually
+publish a selected merged source through the same contract with an exact SHA and
+one version value: `major`/`minor`/`patch` must match the PR intent, while a
+SemVer value must match `Cargo.toml`. It still requires signed intent, green CI,
+and never repeats a crate publication for an existing version.
