@@ -128,6 +128,8 @@ pub(crate) const SWITCHES0_PU_EN2: u8 = 1 << 7;
 pub(crate) const SWITCHES0_PU_EN1: u8 = 1 << 6;
 pub(crate) const SWITCHES0_VCONN_CC2: u8 = 1 << 5;
 pub(crate) const SWITCHES0_VCONN_CC1: u8 = 1 << 4;
+pub(crate) const SWITCHES0_MEAS_CC2: u8 = 1 << 3;
+pub(crate) const SWITCHES0_MEAS_CC1: u8 = 1 << 2;
 pub(crate) const SWITCHES0_PDWN2: u8 = 1 << 1;
 pub(crate) const SWITCHES0_PDWN1: u8 = 1;
 pub(crate) const SWITCHES1_POWER_ROLE: u8 = 1 << 7;
@@ -143,6 +145,8 @@ pub(crate) const SWITCHES1_RW_MASK: u8 = SWITCHES1_POWER_ROLE
     | SWITCHES1_TXCC2
     | SWITCHES1_TXCC1;
 pub(crate) const CONTROL0_TX_FLUSH: u8 = 1 << 6;
+pub(crate) const CONTROL0_HOST_CURRENT_MASK: u8 = 0b11 << 2;
+pub(crate) const CONTROL0_HOST_CURRENT_DEFAULT: u8 = 0b01 << 2;
 pub(crate) const CONTROL0_RW_MASK: u8 = 0b0010_1110;
 pub(crate) const CONTROL1_ENSOP2DB: u8 = 1 << 6;
 pub(crate) const CONTROL1_ENSOP1DB: u8 = 1 << 5;

@@ -132,6 +132,42 @@ impl BitOrAssign for ReceiveSopMask {
     }
 }
 
+/// Values written to the FUSB302B interrupt-mask registers.
+///
+/// A set bit masks its corresponding hardware interrupt source. The FUSB302B
+/// defines the meaning of each bit in its register reference; this type keeps
+/// the three mask registers configured as one atomic PHY setting.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub struct InterruptMasks {
+    primary: u8,
+    extended_a: u8,
+    extended_b: u8,
+}
+
+impl InterruptMasks {
+    /// Construct the values for `MASK`, `MASKA`, and `MASKB`, respectively.
+    pub const fn new(primary: u8, extended_a: u8, extended_b: u8) -> Self {
+        Self {
+            primary,
+            extended_a,
+            extended_b,
+        }
+    }
+
+    pub(crate) const fn primary(self) -> u8 {
+        self.primary
+    }
+
+    pub(crate) const fn extended_a(self) -> u8 {
+        self.extended_a
+    }
+
+    pub(crate) const fn extended_b(self) -> u8 {
+        self.extended_b
+    }
+}
+
 /// Number of hardware retransmissions after the original transmission.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
