@@ -55,6 +55,22 @@ FUSB302BMPX compatibility opt-in: its `SPECREV=0b10` encoding is marked "Do Not
 Use" by the FUSB302B datasheet, so downstream firmware must validate it on its
 target hardware before enabling it.
 
+## Release workflow
+
+Release intent is declared on every pull request with exactly one `type:*`
+label (`major`, `minor`, `patch`, or `none`) and one `channel:*` label (`stable`,
+`beta`, or `dev`). The trusted `Label Gate` snapshots that intent without
+checking out pull request code. After a successful `Rust CI` run on `main`, the
+`Release` workflow creates the `release/<version>` tag and draft GitHub Release,
+then publishes new versions to crates.io through Trusted Publishing (OIDC).
+
+`type:none` is an exact no-release change. A failed release never republishes a
+crate: maintainers use the `Release` workflow's `recover` dispatch with the
+version, exact source SHA, and typed confirmation to complete only missing
+GitHub surfaces. The separate `Notify release failure` workflow reports the
+release unit and recovery details through the shared Telegram notifier; it
+requires the repository `SHOUTRRR_URL` secret.
+
 ## License
 
 Licensed under either of:

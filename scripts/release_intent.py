@@ -141,8 +141,14 @@ def validate_intent(
 
 
 def cargo_version_from_toml(content: str) -> str:
+    in_package = False
     for line in content.splitlines():
         stripped = line.strip()
+        if stripped.startswith("["):
+            in_package = stripped == "[package]"
+            continue
+        if not in_package:
+            continue
         if stripped.startswith("version") and "=" in stripped:
             _, value = stripped.split("=", 1)
             value = value.split("#", 1)[0].strip().strip('"\'')

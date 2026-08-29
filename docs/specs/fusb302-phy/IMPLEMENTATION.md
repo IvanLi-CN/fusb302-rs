@@ -21,6 +21,9 @@
   up to 28 payload bytes.
 - Mock transactions cover register RMW, full and non-full FIFO frames, interrupt
   snapshots, and I2C errors across the supported feature combinations.
+- Release automation validates pull-request labels, snapshots immutable release
+  intent, publishes through crates.io OIDC, and records the crate/tag/GitHub
+  Release contract. Recovery is Actions-only and exact-SHA based.
 
 ## Remaining Gaps
 
@@ -32,6 +35,8 @@
 
 - Initial implementation PR introduces the driver, verification, and release
   automation.
+- The release workflows are deliberately separate from the Rust API and do not
+  add USB-PD policy or extended-message reassembly to the crate.
 
 ## References
 

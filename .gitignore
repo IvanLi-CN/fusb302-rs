@@ -2,4 +2,5 @@
 Cargo.lock
 .DS_Store
 release-intent.json
+scripts/__pycache__/
 tests/__pycache__/

@@ -1,6 +1,7 @@
 {
   "branch": "main",
   "required_checks": [
+    "Label Gate",
     "fmt",
     "clippy",
     "test",
@@ -9,5 +10,17 @@
     "package"
   ],
   "required_review_count": 0,
-  "require_signed_commits": true
+  "require_signed_commits": true,
+  "branch_protection": {
+    "pull_request_only": true,
+    "restrict_administrators": true,
+    "allow_force_pushes": false,
+    "allow_deletions": false
+  },
+  "release_label_gate": {
+    "policy": ".github/pr-label-release.json",
+    "workflow": ".github/workflows/label-gate.yml",
+    "artifact": "release-intent"
+  },
+  "waivers": []
 }
