@@ -2,6 +2,15 @@ name: Release Verify
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: Optional published version to verify with source_sha.
+        required: false
+        type: string
+      source_sha:
+        description: Optional exact release source SHA.
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -16,5 +25,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - run: cargo package --allow-dirty
-      - run: cargo publish --dry-run
+      - run: python3 scripts/check_quality_gates.py
+      - run: cargo package --locked
+      - name: Verify published release unit when requested
+        if: ${{ inputs.version != '' && inputs.source_sha != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          VERSION: ${{ inputs.version }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: python3 scripts/check_release_contract.py --repo "$REPOSITORY" --version "$VERSION" --source-sha "$SOURCE_SHA"

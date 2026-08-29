@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "policy": {
+    "source_of_truth": "pull-request-labels",
+    "trusted_gate_workflow": "Label Gate",
+    "release_workflow": "Release",
+    "failure_notification_workflow": "Notify release failure",
+    "unknown_release_labels": "fail",
+    "duplicate_release_labels": "fail",
+    "missing_required_release_labels": "fail",
+    "persist_release_intent": {
+      "mode": "mainline-snapshot",
+      "snapshot_artifact": "release-intent",
+      "backfill_entrypoint": "workflow_dispatch",
+      "queue_strategy": "next-pending"
+    }
+  },
+  "label_groups": [
+    {
+      "name": "type",
+      "prefix": "type:",
+      "required": true,
+      "cardinality": "exactly-one",
+      "allowed": [
+        "type:major",
+        "type:minor",
+        "type:patch",
+        "type:none"
+      ]
+    },
+    {
+      "name": "channel",
+      "prefix": "channel:",
+      "required": true,
+      "cardinality": "exactly-one",
+      "allowed": [
+        "channel:stable",
+        "channel:beta",
+        "channel:dev"
+      ]
+    }
+  ],
+  "release_snapshot": {
+    "fields": [
+      "pull_request",
+      "merge_commit_sha",
+      "head_sha",
+      "base_sha",
+      "labels",
+      "type",
+      "channel",
+      "version",
+      "publish",
+      "run_url"
+    ]
+  },
+  "required_quality_gate": {
+    "check_name": "Label Gate",
+    "quality_gates_declaration": ".github/quality-gates.json"
+  }
+}

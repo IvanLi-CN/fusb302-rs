@@ -1,0 +1,86 @@
+name: Notify release failure
+
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  context:
+    name: Collect failed release context
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    outputs:
+      version: ${{ steps.context.outputs.version }}
+      source_sha: ${{ steps.context.outputs.source_sha }}
+      release_type: ${{ steps.context.outputs.release_type }}
+      channel: ${{ steps.context.outputs.channel }}
+      recovery: ${{ steps.context.outputs.recovery }}
+      pull_request: ${{ steps.context.outputs.pull_request }}
+    steps:
+      - name: Download immutable intent artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-context
+          gh run download "$RUN_ID" --repo "$REPOSITORY" --name release-unit-inputs --dir release-context || true
+          if [[ ! -f release-context/release-intent.json ]]; then
+            gh run download "$RUN_ID" --repo "$REPOSITORY" --name release-intent --dir release-context || true
+          fi
+
+      - name: Extract notification context
+        id: context
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          candidates = [
+              Path("release-context/release-intent.json"),
+              Path("release-context/release-unit-inputs/release-intent.json"),
+          ]
+          data = {}
+          for candidate in candidates:
+              if candidate.is_file():
+                  data = json.loads(candidate.read_text(encoding="utf-8"))
+                  break
+          source_sha = data.get("merge_commit_sha") or data.get("head_sha") or "unknown"
+          values = {
+              "version": data.get("version", "unknown"),
+              "source_sha": source_sha,
+              "release_type": data.get("type", "recovery"),
+              "channel": data.get("channel", "recovery"),
+              "recovery": str(bool(data.get("recovery", False))).lower(),
+              "pull_request": str(data.get("pull_request") or "unknown"),
+          }
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              for key, value in values.items():
+                  output.write(f"{key}={value}\n")
+          PY
+
+  notify:
+    name: Send Telegram notification
+    needs: context
+    if: ${{ needs.context.result == 'success' }}
+    uses: IvanLi-CN/github-workflows/.github/workflows/release-failure-telegram.yml@main
+    with:
+      repository: ${{ github.repository }}
+      workflow_name: Release
+      conclusion: ${{ github.event.workflow_run.conclusion }}
+      run_url: ${{ github.event.workflow_run.html_url }}
+      ref_label: "main / release unit ${{ needs.context.outputs.version }}"
+      head_sha: ${{ needs.context.outputs.source_sha }}
+      run_attempt: ${{ github.event.workflow_run.run_attempt }}
+      actor: ${{ github.event.workflow_run.actor.login }}
+      event_name: ${{ github.event.workflow_run.event }}
+      extra_details: "pr=${{ needs.context.outputs.pull_request }}, type=${{ needs.context.outputs.release_type }}, channel=${{ needs.context.outputs.channel }}, recovery=${{ needs.context.outputs.recovery }}; rerun Release with workflow_dispatch recover inputs after checking the run."
+    secrets:
+      SHOUTRRR_URL: ${{ secrets.SHOUTRRR_URL }}

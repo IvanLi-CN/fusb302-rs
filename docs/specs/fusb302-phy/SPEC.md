@@ -50,6 +50,8 @@ FUSB302B 是由 host software 驱动的 Type-C 与 USB-PD BMC PHY。驱动必须
 - [Own a protocol-neutral PD packet transport type](../../adr/0004-own-the-pd-packet-transport-type.md)
 - [Set a publishable embedded crate baseline](../../adr/0005-publishable-embedded-crate-baseline.md)
 - [Keep PD 3.0 GoodCRC encoding an explicit BMPX opt-in](../../adr/0006-explicit-bmpx-pd3-goodcrc.md)
+- [Bind public crate versions to immutable release units](../../adr/0007-release-unit-contract.md)
+- [Authenticate crate publication with trusted OIDC](../../adr/0008-trusted-publishing.md)
 
 ## 需求（Requirements）
 
@@ -152,8 +154,27 @@ FUSB302B 是由 host software 驱动的 Type-C 与 USB-PD BMC PHY。驱动必须
 - Clippy with warnings denied for default, `async`, `defmt` and combined features.
 - Tests and doctests for the same feature combinations; default feature MSRV test
   with Rust 1.85.
-- `cargo package` and a manually triggered `cargo publish --dry-run` release
-  verification.
+- `cargo package` and `cargo publish --dry-run` release verification.
+
+### Release Contract
+
+- A public `fusb302` version is a release unit: the crates.io package,
+  `release/<version>` tag, and GitHub Release must point to the same verified
+  signed source SHA.
+- Every merge-ready PR has exactly one `type:major`, `type:minor`,
+  `type:patch`, or `type:none` label and exactly one `channel:stable`,
+  `channel:beta`, or `channel:dev` label. A trusted `Label Gate` validates and
+  snapshots the intent before merge.
+- The PR's `Cargo.toml` contains the exact version. `stable` is a normal
+  crates.io/GitHub release; `beta` and `dev` are crates.io/GitHub prereleases.
+  `type:none` keeps the version unchanged and creates no release unit.
+- Release runs automatically only after the exact `main` source passes required
+  CI. It uses a durable receipt and a next-pending recovery path rather than
+  relying on workflow concurrency alone.
+- crates.io publication uses Trusted Publishing OIDC. An Actions-only recovery
+  can reconcile a missing tag or GitHub Release at an exact source SHA without
+  republishing an existing crate version. Release failure notification includes
+  the release intent, source SHA, target version, and run URL.
 
 ## Visual Evidence
 

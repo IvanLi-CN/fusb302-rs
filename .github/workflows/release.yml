@@ -1,0 +1,410 @@
+name: Release
+
+on:
+  workflow_run:
+    workflows: [Rust CI]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Release queue operation.
+        required: true
+        default: next-pending
+        type: choice
+        options:
+          - next-pending
+          - recover
+      version:
+        description: Required only for recover, for example 0.1.0.
+        required: false
+        type: string
+      source_sha:
+        description: Required only for recover; full lowercase commit SHA.
+        required: false
+        type: string
+      confirmation:
+        description: Required only for recover; type recover-fusb302.
+        required: false
+        type: string
+
+permissions: {}
+
+env:
+  CARGO_TERM_COLOR: always
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  resolve:
+    name: Resolve release intent
+    if: >-
+      ${{
+        github.event_name == 'workflow_dispatch' ||
+        (github.event.workflow_run.conclusion == 'success' &&
+         github.event.workflow_run.event == 'push' &&
+         github.event.workflow_run.head_branch == 'main')
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+      checks: read
+      statuses: read
+    outputs:
+      mode: ${{ steps.intent.outputs.mode }}
+      intent_kind: ${{ steps.intent.outputs.intent_kind }}
+      source_sha: ${{ steps.intent.outputs.source_sha }}
+      head_sha: ${{ steps.intent.outputs.head_sha }}
+      base_sha: ${{ steps.intent.outputs.base_sha }}
+      pull_request: ${{ steps.intent.outputs.pull_request }}
+      version: ${{ steps.intent.outputs.version }}
+      type: ${{ steps.intent.outputs.type }}
+      channel: ${{ steps.intent.outputs.channel }}
+      publish: ${{ steps.intent.outputs.publish }}
+    steps:
+      - name: Checkout trusted release tooling
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Resolve immutable intent
+        id: intent
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
+          WORKFLOW_RUN_SHA: ${{ github.event.workflow_run.head_sha }}
+          INPUT_MODE: ${{ inputs.mode }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_SOURCE_SHA: ${{ inputs.source_sha }}
+          INPUT_CONFIRMATION: ${{ inputs.confirmation }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          mode="${INPUT_MODE:-next-pending}"
+          case "$EVENT_NAME:$mode" in
+            workflow_run:*)
+              test "$mode" = "next-pending"
+              if ! python3 scripts/select_pending_release.py \
+                --repo "$REPOSITORY" \
+                --output release-intent.json; then
+                python3 scripts/resolve_release_intent.py \
+                  --repo "$REPOSITORY" \
+                  --merge-sha "$WORKFLOW_RUN_SHA" \
+                  --output release-intent.json
+                test "$(jq -r '.publish' release-intent.json)" = "false"
+              fi
+              ;;
+            workflow_dispatch:next-pending)
+              python3 scripts/select_pending_release.py \
+                --repo "$REPOSITORY" \
+                --output release-intent.json
+              ;;
+            workflow_dispatch:recover)
+              python3 scripts/recovery_guard.py \
+                --repo "$REPOSITORY" \
+                --version "$INPUT_VERSION" \
+                --source-sha "$INPUT_SOURCE_SHA" \
+                --confirmation "$INPUT_CONFIRMATION"
+              python3 scripts/recovery_intent.py \
+                --output release-intent.json \
+                --repository "$REPOSITORY" \
+                --version "$INPUT_VERSION" \
+                --source-sha "$INPUT_SOURCE_SHA" \
+                --run-url "$RUN_URL"
+              ;;
+            *)
+              echo "unsupported release mode: $EVENT_NAME:$mode" >&2
+              exit 1
+              ;;
+          esac
+
+          source_sha="$(jq -r '.merge_commit_sha // .source_sha // .head_sha' release-intent.json)"
+          test "$source_sha" != "null"
+          python3 scripts/source_guard.py --repo "$REPOSITORY" --source-sha "$source_sha"
+          {
+            printf 'mode=%s\n' "$mode"
+            printf 'intent_kind=%s\n' "$(jq -r '.intent_kind // "release"' release-intent.json)"
+            printf 'source_sha=%s\n' "$source_sha"
+            printf 'head_sha=%s\n' "$(jq -r '.head_sha // empty' release-intent.json)"
+            printf 'base_sha=%s\n' "$(jq -r '.base_sha // empty' release-intent.json)"
+            printf 'pull_request=%s\n' "$(jq -r '.pull_request // recovery' release-intent.json)"
+            printf 'version=%s\n' "$(jq -r '.version' release-intent.json)"
+            printf 'type=%s\n' "$(jq -r '.type // recovery' release-intent.json)"
+            printf 'channel=%s\n' "$(jq -r '.channel // recovery' release-intent.json)"
+            printf 'publish=%s\n' "$(jq -r '.publish' release-intent.json)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload immutable intent
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-intent
+          path: release-intent.json
+          if-no-files-found: error
+          retention-days: 90
+
+  preflight:
+    name: Package release source
+    needs: resolve
+    if: ${{ needs.resolve.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      registry_exists: ${{ steps.registry.outputs.exists }}
+      registry_yanked: ${{ steps.registry.outputs.yanked }}
+    steps:
+      - name: Checkout immutable release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.source_sha }}
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Download immutable intent
+        uses: actions/download-artifact@v4
+        with:
+          name: release-intent
+
+      - name: Verify manifest and package
+        env:
+          EXPECTED_VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          test "$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')" = "$EXPECTED_VERSION"
+          cargo package --locked
+
+      - name: Inspect registry state
+        id: registry
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          python3 scripts/registry_state.py --version "$VERSION" | tee registry-state.json
+          exists="$(jq -r '.exists' registry-state.json)"
+          yanked="$(jq -r '.yanked // false' registry-state.json)"
+          if [[ "$yanked" == "true" ]]; then
+            echo "published version is yanked and cannot form a release unit" >&2
+            exit 1
+          fi
+          printf 'exists=%s\n' "$exists" >> "$GITHUB_OUTPUT"
+          printf 'yanked=%s\n' "$yanked" >> "$GITHUB_OUTPUT"
+
+      - name: Dry-run new registry publication
+        if: ${{ needs.resolve.outputs.mode != 'recover' && steps.registry.outputs.exists != 'true' && needs.resolve.outputs.publish == 'true' }}
+        run: cargo publish --locked --dry-run
+
+      - name: Upload release inputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-unit-inputs
+          path: |
+            release-intent.json
+            registry-state.json
+          if-no-files-found: error
+          retention-days: 90
+
+  prepare:
+    name: Prepare release surfaces
+    needs: [resolve, preflight]
+    if: >-
+      ${{
+        needs.preflight.result == 'success' &&
+        (needs.resolve.outputs.publish == 'true' || needs.resolve.outputs.mode == 'recover')
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    outputs:
+      publish_needed: ${{ steps.mode.outputs.publish_needed }}
+    steps:
+      - name: Checkout trusted release tooling
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Download release inputs
+        uses: actions/download-artifact@v4
+        with:
+          name: release-unit-inputs
+
+      - name: Render release notes
+        run: python3 scripts/release_notes.py --intent release-intent.json --output release-notes.md
+
+      - name: Decide publish operation
+        id: mode
+        env:
+          RELEASE_MODE: ${{ needs.resolve.outputs.mode }}
+          RELEASE_KIND: ${{ needs.resolve.outputs.intent_kind }}
+          RELEASE_PUBLISH: ${{ needs.resolve.outputs.publish }}
+          REGISTRY_EXISTS: ${{ needs.preflight.outputs.registry_exists }}
+        run: |
+          set -euo pipefail
+          if [[ "$RELEASE_MODE" == "recover" ]]; then
+            test "$RELEASE_PUBLISH" = "false"
+            printf 'publish_needed=false\n' >> "$GITHUB_OUTPUT"
+          elif [[ "$RELEASE_KIND" == "release" && "$RELEASE_PUBLISH" == "true" && "$REGISTRY_EXISTS" != "true" ]]; then
+            printf 'publish_needed=true\n' >> "$GITHUB_OUTPUT"
+          else
+            printf 'publish_needed=false\n' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create or reuse draft release surface
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+          SOURCE_SHA: ${{ needs.resolve.outputs.source_sha }}
+          CHANNEL: ${{ needs.resolve.outputs.channel }}
+        run: |
+          set -euo pipefail
+          args=(
+            prepare
+            --repo "$REPOSITORY"
+            --tag "release/$VERSION"
+            --source-sha "$SOURCE_SHA"
+            --title "fusb302 $VERSION"
+            --notes-file release-notes.md
+          )
+          if [[ "$CHANNEL" == "beta" || "$CHANNEL" == "dev" ]]; then
+            args+=(--prerelease)
+          fi
+          python3 scripts/release_surfaces.py "${args[@]}"
+
+      - name: Upload prepared release
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-prepared
+          path: |
+            release-intent.json
+            release-notes.md
+          if-no-files-found: error
+          retention-days: 90
+
+  publish:
+    name: Publish crate with OIDC
+    needs: [resolve, preflight, prepare]
+    if: ${{ needs.prepare.result == 'success' && needs.prepare.outputs.publish_needed == 'true' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout immutable release source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.source_sha }}
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Package exact source
+        run: cargo package --locked
+
+      - name: Exchange OIDC token for crates.io token
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+
+      - name: Publish exact package
+        env:
+          CRATES_IO_TOKEN: ${{ steps.auth.outputs.token }}
+        run: cargo publish --locked --token "$CRATES_IO_TOKEN"
+
+      - name: Wait for registry visibility
+        env:
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: python3 scripts/wait_for_registry.py --version "$VERSION"
+
+  finalize:
+    name: Finalize release unit
+    needs: [resolve, preflight, prepare, publish]
+    if: >-
+      ${{
+        always() &&
+        needs.resolve.result == 'success' &&
+        needs.preflight.result == 'success' &&
+        (needs.resolve.outputs.publish != 'true' || needs.prepare.result == 'success') &&
+        (needs.resolve.outputs.publish != 'true' ||
+         needs.prepare.outputs.publish_needed != 'true' ||
+         needs.publish.result == 'success')
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout trusted release tooling
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Download release inputs
+        uses: actions/download-artifact@v4
+        with:
+          name: release-unit-inputs
+
+      - name: Skip non-release intent
+        if: ${{ needs.resolve.outputs.publish != 'true' }}
+        run: |
+          jq '{status: "skipped", version, source_sha: (.merge_commit_sha // .head_sha), type, channel, publish}' release-intent.json > release-skip.json
+
+      - name: Finalize public surfaces
+        if: ${{ needs.resolve.outputs.publish == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+          CHANNEL: ${{ needs.resolve.outputs.channel }}
+          SOURCE_SHA: ${{ needs.resolve.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          args=(finalize --repo "$REPOSITORY" --tag "release/$VERSION")
+          if [[ "$CHANNEL" == "beta" || "$CHANNEL" == "dev" ]]; then
+            args+=(--prerelease)
+          fi
+          python3 scripts/release_surfaces.py "${args[@]}"
+          python3 scripts/check_release_contract.py \
+            --repo "$REPOSITORY" \
+            --version "$VERSION" \
+            --source-sha "$SOURCE_SHA"
+
+      - name: Write release receipt
+        if: ${{ needs.resolve.outputs.publish == 'true' }}
+        env:
+          REPOSITORY: ${{ github.repository }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+          SOURCE_SHA: ${{ needs.resolve.outputs.source_sha }}
+          PULL_REQUEST: ${{ needs.resolve.outputs.pull_request }}
+          HEAD_SHA: ${{ needs.resolve.outputs.head_sha }}
+          BASE_SHA: ${{ needs.resolve.outputs.base_sha }}
+          RELEASE_TYPE: ${{ needs.resolve.outputs.type }}
+          CHANNEL: ${{ needs.resolve.outputs.channel }}
+          RELEASE_MODE: ${{ needs.resolve.outputs.mode }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          status=published
+          if [[ "$RELEASE_MODE" == "recover" ]]; then
+            status=recovery
+          fi
+          python3 scripts/release_receipt.py \
+            --output release-receipt.json \
+            --repository "$REPOSITORY" \
+            --version "$VERSION" \
+            --source-sha "$SOURCE_SHA" \
+            --pull-request "$PULL_REQUEST" \
+            --head-sha "$HEAD_SHA" \
+            --base-sha "$BASE_SHA" \
+            --type "$RELEASE_TYPE" \
+            --channel "$CHANNEL" \
+            --status "$status" \
+            --run-url "$RUN_URL"
+
+      - name: Upload release receipt
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-receipt
+          path: release-*.json
+          if-no-files-found: error
+          retention-days: 365
