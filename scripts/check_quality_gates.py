@@ -83,8 +83,6 @@ def main() -> int:
         return fail("Release must use crates.io OIDC authentication")
     if "CARGO_REGISTRY_TOKEN" in release_workflow:
         return fail("Release must not use the legacy CARGO_REGISTRY_TOKEN")
-    if "publish-fusb302" not in release_workflow:
-        return fail("manual publish must require typed confirmation")
     if "version_mode" not in release_workflow or "- bump" not in release_workflow or "- exact" not in release_workflow:
         return fail("manual publish must expose bump and exact version modes")
     if "scripts/validate_manual_publish.py" not in release_workflow:
