@@ -167,6 +167,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: release-intent
+          path: ${{ runner.temp }}/release-inputs
 
       - name: Verify manifest and package
         env:
@@ -182,9 +183,10 @@ jobs:
           VERSION: ${{ needs.resolve.outputs.version }}
         run: |
           set -euo pipefail
-          python3 scripts/registry_state.py --version "$VERSION" | tee registry-state.json
-          exists="$(jq -r '.exists' registry-state.json)"
-          yanked="$(jq -r '.yanked // false' registry-state.json)"
+          input_dir="${RUNNER_TEMP}/release-inputs"
+          python3 scripts/registry_state.py --version "$VERSION" | tee "${input_dir}/registry-state.json"
+          exists="$(jq -r '.exists' "${input_dir}/registry-state.json")"
+          yanked="$(jq -r '.yanked // false' "${input_dir}/registry-state.json")"
           if [[ "$yanked" == "true" ]]; then
             echo "published version is yanked and cannot form a release unit" >&2
             exit 1
@@ -201,8 +203,8 @@ jobs:
         with:
           name: release-unit-inputs
           path: |
-            release-intent.json
-            registry-state.json
+            ${{ runner.temp }}/release-inputs/release-intent.json
+            ${{ runner.temp }}/release-inputs/registry-state.json
           if-no-files-found: error
           retention-days: 90
 
