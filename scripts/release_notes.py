@@ -16,9 +16,9 @@ def main() -> int:
     args = parser.parse_args()
     intent: dict[str, Any] = json.loads(args.intent.read_text(encoding="utf-8"))
     version = intent["version"]
-    channel = intent.get("channel", "recovery")
-    labels = ", ".join(intent.get("labels", [])) or "recovery"
-    pr = intent.get("pull_request") or "recovery"
+    channel = intent.get("channel", "unknown")
+    labels = ", ".join(intent.get("labels", [])) or "unknown"
+    pr = intent.get("pull_request") or "unknown"
     body = "\n".join(
         (
             f"Release Unit: `fusb302@{version}`",
