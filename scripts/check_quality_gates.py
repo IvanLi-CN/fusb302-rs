@@ -85,6 +85,12 @@ def main() -> int:
         return fail("Release must not use the legacy CARGO_REGISTRY_TOKEN")
     if "scripts/recovery_guard.py" not in release_workflow:
         return fail("Release must guard exact-SHA recovery")
+    if "name: Upload trusted registry tooling" not in release_workflow:
+        return fail("Release must publish trusted registry tooling for immutable source recovery")
+    if "name: Download trusted registry tooling" not in release_workflow:
+        return fail("Release must use trusted registry tooling during immutable source preflight")
+    if '"${RUNNER_TEMP}/release-tooling/registry_state.py"' not in release_workflow:
+        return fail("Release must run registry lookup from trusted tooling outside the source worktree")
 
     notify_workflow = NOTIFY_WORKFLOW_PATH.read_text(encoding="utf-8")
     if not re.search(r"^name: Notify release failure$", notify_workflow, re.MULTILINE):
