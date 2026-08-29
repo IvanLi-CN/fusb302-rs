@@ -7,38 +7,13 @@ on:
     types: [completed]
   workflow_dispatch:
     inputs:
-      mode:
-        description: Release queue operation.
-        required: true
-        default: next-pending
-        type: choice
-        options:
-          - next-pending
-          - publish
       source_sha:
-        description: Required only for publish; merged commit SHA.
-        required: false
+        description: Merged commit SHA to publish.
+        required: true
         type: string
-      version_mode:
-        description: Manual publish version selection.
-        required: false
-        default: bump
-        type: choice
-        options:
-          - bump
-          - exact
-      bump:
-        description: Required for bump mode.
-        required: false
-        default: patch
-        type: choice
-        options:
-          - major
-          - minor
-          - patch
       version:
-        description: Required for exact mode, for example 0.2.0.
-        required: false
+        description: major, minor, patch, or an exact Cargo version.
+        required: true
         type: string
 
 permissions:
@@ -66,7 +41,6 @@ jobs:
       checks: read
       statuses: read
     outputs:
-      mode: ${{ steps.intent.outputs.mode }}
       intent_kind: ${{ steps.intent.outputs.intent_kind }}
       source_sha: ${{ steps.intent.outputs.source_sha }}
       head_sha: ${{ steps.intent.outputs.head_sha }}
@@ -89,50 +63,30 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
           WORKFLOW_RUN_SHA: ${{ github.event.workflow_run.head_sha }}
-          INPUT_MODE: ${{ inputs.mode }}
           INPUT_SOURCE_SHA: ${{ inputs.source_sha }}
-          INPUT_VERSION_MODE: ${{ inputs.version_mode }}
-          INPUT_BUMP: ${{ inputs.bump }}
           INPUT_VERSION: ${{ inputs.version }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          mode="${INPUT_MODE:-next-pending}"
-          case "$EVENT_NAME:$mode" in
-            workflow_run:*)
-              test "$mode" = "next-pending"
-              if ! python3 scripts/select_pending_release.py \
+          case "$EVENT_NAME" in
+            workflow_run)
+              python3 scripts/resolve_release_intent.py \
                 --repo "$REPOSITORY" \
-                --output release-intent.json; then
-                python3 scripts/resolve_release_intent.py \
-                  --repo "$REPOSITORY" \
-                  --merge-sha "$WORKFLOW_RUN_SHA" \
-                  --output release-intent.json \
-                  --allow-bootstrap
-                test "$(jq -r '.publish' release-intent.json)" = "false"
-              fi
+                --merge-sha "$WORKFLOW_RUN_SHA" \
+                --output release-intent.json \
+                --allow-bootstrap
               ;;
-            workflow_dispatch:next-pending)
-              python3 scripts/select_pending_release.py \
-                --repo "$REPOSITORY" \
-                --output release-intent.json
-              ;;
-            workflow_dispatch:publish)
-              python3 scripts/source_guard.py \
-                --repo "$REPOSITORY" \
-                --source-sha "$INPUT_SOURCE_SHA"
+            workflow_dispatch)
               python3 scripts/resolve_release_intent.py \
                 --repo "$REPOSITORY" \
                 --merge-sha "$INPUT_SOURCE_SHA" \
                 --output release-intent.json
               python3 scripts/validate_manual_publish.py \
                 --intent release-intent.json \
-                --version-mode "$INPUT_VERSION_MODE" \
-                --bump "$INPUT_BUMP" \
                 --version "$INPUT_VERSION"
               ;;
             *)
-              echo "unsupported release mode: $EVENT_NAME:$mode" >&2
+              echo "unsupported release event: $EVENT_NAME" >&2
               exit 1
               ;;
           esac
@@ -141,7 +95,6 @@ jobs:
           test "$source_sha" != "null"
           python3 scripts/source_guard.py --repo "$REPOSITORY" --source-sha "$source_sha"
           {
-            printf 'mode=%s\n' "$mode"
             printf 'intent_kind=%s\n' "$(jq -r '.intent_kind // "release"' release-intent.json)"
             printf 'source_sha=%s\n' "$source_sha"
             printf 'head_sha=%s\n' "$(jq -r '.head_sha // empty' release-intent.json)"

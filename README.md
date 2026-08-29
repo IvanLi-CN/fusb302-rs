@@ -71,13 +71,12 @@ The first infrastructure merge is a narrow bootstrap: if no trusted
 intent from the merged PR and immutable `Cargo.toml` contents. Publishable
 intents always require the signed Label Gate artifact.
 
-`type:none` is an exact no-release change. A maintainer may manually publish a
-merged release source by dispatching `Release` with mode `publish`, its exact
-merge SHA. Manual publication supports two version modes: `bump` selects
-`major`, `minor`, or `patch` and
-must match the PR's `type:*` label; `exact` accepts a version string and must
-match the source `Cargo.toml`. Both modes verify signed intent, green CI and an
-unpublished version before using the same OIDC publication path.
+`type:none` is an exact no-release change. A maintainer may manually dispatch
+`Release` with a merged source SHA and one `version` value. `major`, `minor`,
+or `patch` selects a semantic bump and must match the PR's `type:*` label; a
+SemVer value must match the source `Cargo.toml`. The workflow verifies signed
+intent and green CI before using the same OIDC publication path, and never
+repeats a crate publication for an existing version.
 The separate `Notify release failure` workflow reports the release unit through
 the shared Telegram notifier; it requires the repository `SHOUTRRR_URL` secret.
 

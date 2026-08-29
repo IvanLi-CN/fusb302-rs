@@ -77,14 +77,18 @@ def main() -> int:
         return fail("release workflow must be named Release")
     if "workflow_run:" not in release_workflow or "workflows: [Rust CI]" not in release_workflow:
         return fail("Release must consume successful Rust CI workflow runs")
-    if "type: choice" not in release_workflow or "- publish" not in release_workflow:
-        return fail("Release must expose an explicit manual publish dispatch mode")
+    if "workflow_dispatch:" not in release_workflow or "source_sha:" not in release_workflow:
+        return fail("Release must expose a manual publish dispatch")
     if "rust-lang/crates-io-auth-action@v1" not in release_workflow:
         return fail("Release must use crates.io OIDC authentication")
     if "CARGO_REGISTRY_TOKEN" in release_workflow:
         return fail("Release must not use the legacy CARGO_REGISTRY_TOKEN")
-    if "version_mode" not in release_workflow or "- bump" not in release_workflow or "- exact" not in release_workflow:
-        return fail("manual publish must expose bump and exact version modes")
+    if "major, minor, patch, or an exact Cargo version" not in release_workflow:
+        return fail("manual publish must expose one semantic-or-exact version input")
+    if "next-pending" in release_workflow or "scripts/select_pending_release.py" in release_workflow:
+        return fail("Release must resolve only its triggering source, without a pending queue")
+    if "version_mode" in release_workflow or "INPUT_BUMP" in release_workflow:
+        return fail("manual publish must not split version selection across multiple inputs")
     if "scripts/validate_manual_publish.py" not in release_workflow:
         return fail("manual publish inputs must be validated against immutable intent")
     if "name: Upload trusted registry tooling" not in release_workflow:

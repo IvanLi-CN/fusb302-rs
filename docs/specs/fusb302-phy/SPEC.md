@@ -169,17 +169,15 @@ FUSB302B 是由 host software 驱动的 Type-C 与 USB-PD BMC PHY。驱动必须
   crates.io/GitHub release; `beta` and `dev` are crates.io/GitHub prereleases.
   `type:none` keeps the version unchanged and creates no release unit.
 - Release runs automatically only after the exact `main` source passes required
-  CI. It uses a durable receipt and a next-pending queue path rather than
-  relying on workflow concurrency alone.
+  CI. Each run resolves only the merge SHA that triggered it.
 - crates.io publication uses Trusted Publishing OIDC with no GitHub deployment
   environment. A maintainer can manually publish a selected merged source with
-  `workflow_dispatch` mode `publish` and an exact source SHA. Manual
-  publication supports `bump` mode (`major`, `minor`, or
-  `patch`, matching the PR type label) and `exact` mode (a version string
-  matching the source `Cargo.toml`). Both modes use the same label, version, CI,
-  and OIDC checks and cannot republish an existing crate version. Release
-  failure notification includes the release intent, source SHA, target version,
-  and run URL.
+  `workflow_dispatch`, an exact source SHA, and one `version` value. `major`,
+  `minor`, or `patch` must match the PR type label; a SemVer value must match
+  the source `Cargo.toml`. Both forms use the same label, version, CI, and OIDC
+  checks and cannot republish an existing crate version. Release failure
+  notification includes the release intent, source SHA, target version, and run
+  URL.
 
 ## Visual Evidence
 

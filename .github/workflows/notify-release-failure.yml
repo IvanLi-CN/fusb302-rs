@@ -79,6 +79,6 @@ jobs:
       run_attempt: ${{ github.event.workflow_run.run_attempt }}
       actor: ${{ github.event.workflow_run.actor.login }}
       event_name: ${{ github.event.workflow_run.event }}
-      extra_details: "pr=${{ needs.context.outputs.pull_request }}, type=${{ needs.context.outputs.release_type }}, channel=${{ needs.context.outputs.channel }}; rerun Release with workflow_dispatch publish and the same merged source SHA after checking the run."
+      extra_details: "pr=${{ needs.context.outputs.pull_request }}, type=${{ needs.context.outputs.release_type }}, channel=${{ needs.context.outputs.channel }}; rerun Release with the same merged source SHA and version selection after checking the run."
     secrets:
       SHOUTRRR_URL: ${{ secrets.SHOUTRRR_URL }}
