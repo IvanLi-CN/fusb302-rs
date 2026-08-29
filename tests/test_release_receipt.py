@@ -43,39 +43,5 @@ class ReleaseReceiptTests(unittest.TestCase):
             self.assertEqual(receipt["source_sha"], "a" * 40)
             self.assertEqual(receipt["surfaces"]["tag"], "release/0.2.0")
 
-    def test_recovery_receipt_allows_missing_base_and_release_labels(self):
-        with tempfile.TemporaryDirectory() as directory:
-            output = Path(directory) / "receipt.json"
-            result = run(
-                [
-                    "python3",
-                    "scripts/release_receipt.py",
-                    "--output",
-                    str(output),
-                    "--repository",
-                    "IvanLi-CN/fusb302-rs",
-                    "--version",
-                    "0.1.0",
-                    "--source-sha",
-                    "a" * 40,
-                    "--head-sha",
-                    "a" * 40,
-                    "--type",
-                    "recovery",
-                    "--channel",
-                    "recovery",
-                    "--status",
-                    "recovery",
-                    "--run-url",
-                    "https://github.com/IvanLi-CN/fusb302-rs/actions/runs/8",
-                ],
-                check=False,
-            )
-            self.assertEqual(result.returncode, 0)
-            receipt = json.loads(output.read_text())
-            self.assertEqual(receipt["status"], "recovery")
-            self.assertEqual(receipt["base_sha"], "")
-
-
 if __name__ == "__main__":
     unittest.main()

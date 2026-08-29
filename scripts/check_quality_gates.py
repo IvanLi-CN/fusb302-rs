@@ -77,16 +77,16 @@ def main() -> int:
         return fail("release workflow must be named Release")
     if "workflow_run:" not in release_workflow or "workflows: [Rust CI]" not in release_workflow:
         return fail("Release must consume successful Rust CI workflow runs")
-    if "type: choice" not in release_workflow or "- recover" not in release_workflow:
-        return fail("Release must expose an explicit recover dispatch mode")
+    if "type: choice" not in release_workflow or "- publish" not in release_workflow:
+        return fail("Release must expose an explicit manual publish dispatch mode")
     if "rust-lang/crates-io-auth-action@v1" not in release_workflow:
         return fail("Release must use crates.io OIDC authentication")
     if "CARGO_REGISTRY_TOKEN" in release_workflow:
         return fail("Release must not use the legacy CARGO_REGISTRY_TOKEN")
-    if "scripts/recovery_guard.py" not in release_workflow:
-        return fail("Release must guard exact-SHA recovery")
+    if "publish-fusb302" not in release_workflow:
+        return fail("manual publish must require typed confirmation")
     if "name: Upload trusted registry tooling" not in release_workflow:
-        return fail("Release must publish trusted registry tooling for immutable source recovery")
+        return fail("Release must publish trusted registry tooling for registry preflight")
     if "name: Download trusted registry tooling" not in release_workflow:
         return fail("Release must use trusted registry tooling during immutable source preflight")
     if '"${RUNNER_TEMP}/release-tooling/registry_state.py"' not in release_workflow:

@@ -15,9 +15,8 @@ prereleases on crates.io and GitHub. `type:none` requires no version change and
 creates no release unit.
 
 Release starts only after the exact protected-main source has passed CI. A
-draft or recovery record may exist while work is in progress, but terminal
-success requires all public surfaces to agree. A durable receipt, a
-next-pending path, and a release-failure sidecar preserve the release intent
-through burst merges and failures. If an already-published version is missing a
-GitHub surface, a maintainer may backfill it at the exact source SHA without
-republishing the crates.io version.
+durable receipt, a next-pending path, and a release-failure sidecar preserve the
+release intent through burst merges and failures. A maintainer may manually
+publish a selected merged source through the same contract with an exact SHA
+and typed confirmation; it still requires signed intent, green CI, and an
+unpublished version.

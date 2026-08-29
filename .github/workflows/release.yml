@@ -14,17 +14,13 @@ on:
         type: choice
         options:
           - next-pending
-          - recover
-      version:
-        description: Required only for recover, for example 0.1.0.
-        required: false
-        type: string
+          - publish
       source_sha:
-        description: Required only for recover; full lowercase commit SHA.
+        description: Required only for publish; merged commit SHA.
         required: false
         type: string
       confirmation:
-        description: Required only for recover; type recover-fusb302.
+        description: Required only for publish; type publish-fusb302.
         required: false
         type: string
 
@@ -77,7 +73,6 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           WORKFLOW_RUN_SHA: ${{ github.event.workflow_run.head_sha }}
           INPUT_MODE: ${{ inputs.mode }}
-          INPUT_VERSION: ${{ inputs.version }}
           INPUT_SOURCE_SHA: ${{ inputs.source_sha }}
           INPUT_CONFIRMATION: ${{ inputs.confirmation }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -103,18 +98,16 @@ jobs:
                 --repo "$REPOSITORY" \
                 --output release-intent.json
               ;;
-            workflow_dispatch:recover)
-              python3 scripts/recovery_guard.py \
+            workflow_dispatch:publish)
+              test "$INPUT_CONFIRMATION" = "publish-fusb302"
+              python3 scripts/source_guard.py \
                 --repo "$REPOSITORY" \
-                --version "$INPUT_VERSION" \
-                --source-sha "$INPUT_SOURCE_SHA" \
-                --confirmation "$INPUT_CONFIRMATION"
-              python3 scripts/recovery_intent.py \
-                --output release-intent.json \
-                --repository "$REPOSITORY" \
-                --version "$INPUT_VERSION" \
-                --source-sha "$INPUT_SOURCE_SHA" \
-                --run-url "$RUN_URL"
+                --source-sha "$INPUT_SOURCE_SHA"
+              python3 scripts/resolve_release_intent.py \
+                --repo "$REPOSITORY" \
+                --merge-sha "$INPUT_SOURCE_SHA" \
+                --output release-intent.json
+              test "$(jq -r '.publish' release-intent.json)" = "true"
               ;;
             *)
               echo "unsupported release mode: $EVENT_NAME:$mode" >&2
@@ -131,10 +124,10 @@ jobs:
             printf 'source_sha=%s\n' "$source_sha"
             printf 'head_sha=%s\n' "$(jq -r '.head_sha // empty' release-intent.json)"
             printf 'base_sha=%s\n' "$(jq -r '.base_sha // empty' release-intent.json)"
-            printf 'pull_request=%s\n' "$(jq -r '.pull_request // recovery' release-intent.json)"
+            printf 'pull_request=%s\n' "$(jq -r '.pull_request' release-intent.json)"
             printf 'version=%s\n' "$(jq -r '.version' release-intent.json)"
-            printf 'type=%s\n' "$(jq -r '.type // recovery' release-intent.json)"
-            printf 'channel=%s\n' "$(jq -r '.channel // recovery' release-intent.json)"
+            printf 'type=%s\n' "$(jq -r '.type' release-intent.json)"
+            printf 'channel=%s\n' "$(jq -r '.channel' release-intent.json)"
             printf 'publish=%s\n' "$(jq -r '.publish' release-intent.json)"
           } >> "$GITHUB_OUTPUT"
 
@@ -216,7 +209,7 @@ jobs:
           printf 'yanked=%s\n' "$yanked" >> "$GITHUB_OUTPUT"
 
       - name: Dry-run new registry publication
-        if: ${{ needs.resolve.outputs.mode != 'recover' && steps.registry.outputs.exists != 'true' && needs.resolve.outputs.publish == 'true' }}
+        if: ${{ steps.registry.outputs.exists != 'true' && needs.resolve.outputs.publish == 'true' }}
         run: cargo publish --locked --dry-run
 
       - name: Upload release inputs
@@ -235,7 +228,7 @@ jobs:
     if: >-
       ${{
         needs.preflight.result == 'success' &&
-        (needs.resolve.outputs.publish == 'true' || needs.resolve.outputs.mode == 'recover')
+        needs.resolve.outputs.publish == 'true'
       }}
     runs-on: ubuntu-latest
     permissions:
@@ -260,16 +253,12 @@ jobs:
       - name: Decide publish operation
         id: mode
         env:
-          RELEASE_MODE: ${{ needs.resolve.outputs.mode }}
           RELEASE_KIND: ${{ needs.resolve.outputs.intent_kind }}
           RELEASE_PUBLISH: ${{ needs.resolve.outputs.publish }}
           REGISTRY_EXISTS: ${{ needs.preflight.outputs.registry_exists }}
         run: |
           set -euo pipefail
-          if [[ "$RELEASE_MODE" == "recover" ]]; then
-            test "$RELEASE_PUBLISH" = "false"
-            printf 'publish_needed=false\n' >> "$GITHUB_OUTPUT"
-          elif [[ "$RELEASE_KIND" == "release" && "$RELEASE_PUBLISH" == "true" && "$REGISTRY_EXISTS" != "true" ]]; then
+          if [[ "$RELEASE_KIND" == "release" && "$RELEASE_PUBLISH" == "true" && "$REGISTRY_EXISTS" != "true" ]]; then
             printf 'publish_needed=true\n' >> "$GITHUB_OUTPUT"
           else
             printf 'publish_needed=false\n' >> "$GITHUB_OUTPUT"
@@ -403,13 +392,8 @@ jobs:
           BASE_SHA: ${{ needs.resolve.outputs.base_sha }}
           RELEASE_TYPE: ${{ needs.resolve.outputs.type }}
           CHANNEL: ${{ needs.resolve.outputs.channel }}
-          RELEASE_MODE: ${{ needs.resolve.outputs.mode }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          status=published
-          if [[ "$RELEASE_MODE" == "recover" ]]; then
-            status=recovery
-          fi
           python3 scripts/release_receipt.py \
             --output release-receipt.json \
             --repository "$REPOSITORY" \
@@ -420,7 +404,7 @@ jobs:
             --base-sha "$BASE_SHA" \
             --type "$RELEASE_TYPE" \
             --channel "$CHANNEL" \
-            --status "$status" \
+            --status published \
             --run-url "$RUN_URL"
 
       - name: Upload release receipt

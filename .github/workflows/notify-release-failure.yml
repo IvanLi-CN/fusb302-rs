@@ -19,7 +19,6 @@ jobs:
       source_sha: ${{ steps.context.outputs.source_sha }}
       release_type: ${{ steps.context.outputs.release_type }}
       channel: ${{ steps.context.outputs.channel }}
-      recovery: ${{ steps.context.outputs.recovery }}
       pull_request: ${{ steps.context.outputs.pull_request }}
     steps:
       - name: Download immutable intent artifact
@@ -56,9 +55,8 @@ jobs:
           values = {
               "version": data.get("version", "unknown"),
               "source_sha": source_sha,
-              "release_type": data.get("type", "recovery"),
-              "channel": data.get("channel", "recovery"),
-              "recovery": str(bool(data.get("recovery", False))).lower(),
+              "release_type": data.get("type", "unknown"),
+              "channel": data.get("channel", "unknown"),
               "pull_request": str(data.get("pull_request") or "unknown"),
           }
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
@@ -81,6 +79,6 @@ jobs:
       run_attempt: ${{ github.event.workflow_run.run_attempt }}
       actor: ${{ github.event.workflow_run.actor.login }}
       event_name: ${{ github.event.workflow_run.event }}
-      extra_details: "pr=${{ needs.context.outputs.pull_request }}, type=${{ needs.context.outputs.release_type }}, channel=${{ needs.context.outputs.channel }}, recovery=${{ needs.context.outputs.recovery }}; rerun Release with workflow_dispatch recover inputs after checking the run."
+      extra_details: "pr=${{ needs.context.outputs.pull_request }}, type=${{ needs.context.outputs.release_type }}, channel=${{ needs.context.outputs.channel }}; rerun Release with workflow_dispatch publish and the same merged source SHA after checking the run."
     secrets:
       SHOUTRRR_URL: ${{ secrets.SHOUTRRR_URL }}

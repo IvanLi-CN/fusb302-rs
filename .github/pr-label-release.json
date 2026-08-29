@@ -11,7 +11,7 @@
     "persist_release_intent": {
       "mode": "mainline-snapshot",
       "snapshot_artifact": "release-intent",
-      "backfill_entrypoint": "workflow_dispatch",
+      "manual_publish_entrypoint": "workflow_dispatch:publish",
       "queue_strategy": "next-pending"
     }
   },

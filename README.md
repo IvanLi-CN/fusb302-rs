@@ -71,11 +71,13 @@ The first infrastructure merge is a narrow bootstrap: if no trusted
 intent from the merged PR and immutable `Cargo.toml` contents. Publishable
 intents always require the signed Label Gate artifact.
 
-`type:none` is an exact no-release change. A failed release never republishes a
-crate: maintainers manually backfill only missing GitHub surfaces at the exact
-source SHA. The separate `Notify release failure` workflow reports the release
-unit and recovery details through the shared Telegram notifier; it requires the
-repository `SHOUTRRR_URL` secret.
+`type:none` is an exact no-release change. A maintainer may manually publish a
+merged release source by dispatching `Release` with mode `publish`, its exact
+merge SHA, and the typed confirmation `publish-fusb302`. The workflow resolves
+the signed label intent, verifies green CI and the Cargo version, then uses the
+same OIDC publication path; it cannot publish an already-existing version.
+The separate `Notify release failure` workflow reports the release unit through
+the shared Telegram notifier; it requires the repository `SHOUTRRR_URL` secret.
 
 ## License
 
