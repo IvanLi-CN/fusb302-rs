@@ -381,8 +381,13 @@ jobs:
           BASE_SHA: ${{ needs.resolve.outputs.base_sha }}
           RELEASE_TYPE: ${{ needs.resolve.outputs.type }}
           CHANNEL: ${{ needs.resolve.outputs.channel }}
+          RELEASE_MODE: ${{ needs.resolve.outputs.mode }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
+          status=published
+          if [[ "$RELEASE_MODE" == "recover" ]]; then
+            status=recovery
+          fi
           python3 scripts/release_receipt.py \
             --output release-receipt.json \
             --repository "$REPOSITORY" \
@@ -393,7 +398,7 @@ jobs:
             --base-sha "$BASE_SHA" \
             --type "$RELEASE_TYPE" \
             --channel "$CHANNEL" \
-            --status published \
+            --status "$status" \
             --run-url "$RUN_URL"
 
       - name: Upload release receipt
