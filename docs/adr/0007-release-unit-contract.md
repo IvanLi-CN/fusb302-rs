@@ -17,7 +17,7 @@ creates no release unit.
 Release starts only after the exact protected-main source has passed CI. A
 draft or recovery record may exist while work is in progress, but terminal
 success requires all public surfaces to agree. A durable receipt, a
-next-pending/backfill path, and a release-failure sidecar preserve the release
-intent through burst merges and failures. Recovery is an Actions-only,
-idempotent operation at an exact source SHA; it completes a missing surface
-without republishing an existing crates.io version.
+next-pending path, and a release-failure sidecar preserve the release intent
+through burst merges and failures. If an already-published version is missing a
+GitHub surface, a maintainer may backfill it at the exact source SHA without
+republishing the crates.io version.

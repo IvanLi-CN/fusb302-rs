@@ -23,7 +23,7 @@
   snapshots, and I2C errors across the supported feature combinations.
 - Release automation validates pull-request labels, snapshots immutable release
   intent, publishes through crates.io OIDC, and records the crate/tag/GitHub
-  Release contract. Recovery is Actions-only and exact-SHA based.
+  Release contract. Missing surfaces are manually backfilled at an exact SHA.
 
 ## Remaining Gaps
 
