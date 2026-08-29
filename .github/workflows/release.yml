@@ -19,6 +19,27 @@ on:
         description: Required only for publish; merged commit SHA.
         required: false
         type: string
+      version_mode:
+        description: Manual publish version selection.
+        required: false
+        default: bump
+        type: choice
+        options:
+          - bump
+          - exact
+      bump:
+        description: Required for bump mode.
+        required: false
+        default: patch
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
+      version:
+        description: Required for exact mode, for example 0.2.0.
+        required: false
+        type: string
       confirmation:
         description: Required only for publish; type publish-fusb302.
         required: false
@@ -74,6 +95,9 @@ jobs:
           WORKFLOW_RUN_SHA: ${{ github.event.workflow_run.head_sha }}
           INPUT_MODE: ${{ inputs.mode }}
           INPUT_SOURCE_SHA: ${{ inputs.source_sha }}
+          INPUT_VERSION_MODE: ${{ inputs.version_mode }}
+          INPUT_BUMP: ${{ inputs.bump }}
+          INPUT_VERSION: ${{ inputs.version }}
           INPUT_CONFIRMATION: ${{ inputs.confirmation }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
@@ -107,7 +131,11 @@ jobs:
                 --repo "$REPOSITORY" \
                 --merge-sha "$INPUT_SOURCE_SHA" \
                 --output release-intent.json
-              test "$(jq -r '.publish' release-intent.json)" = "true"
+              python3 scripts/validate_manual_publish.py \
+                --intent release-intent.json \
+                --version-mode "$INPUT_VERSION_MODE" \
+                --bump "$INPUT_BUMP" \
+                --version "$INPUT_VERSION"
               ;;
             *)
               echo "unsupported release mode: $EVENT_NAME:$mode" >&2
