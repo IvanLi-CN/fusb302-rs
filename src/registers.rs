@@ -191,6 +191,7 @@ pub(crate) const CONTROL3_AUTO_SOFT_RESET: u8 = 1 << 3;
 pub(crate) const CONTROL3_RETRY_COUNT_MASK: u8 = 0b110;
 pub(crate) const CONTROL3_AUTO_RETRY: u8 = 1;
 pub(crate) const POWER_ALL: u8 = 0x0f;
+pub(crate) const POWER_TOGGLE_DETECTION: u8 = 0x01;
 pub(crate) const RESET_PD: u8 = 1 << 1;
 pub(crate) const RESET_SW: u8 = 1;
 pub(crate) const STATUS1_RX_EMPTY: u8 = 1 << 5;

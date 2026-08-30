@@ -1,6 +1,6 @@
 [package]
 name = "fusb302"
-version = "0.2.2"
+version = "0.2.3"
 authors = ["Ivan Li <ivanli2048@gmail.com>"]
 edition = "2024"
 rust-version = "1.85"

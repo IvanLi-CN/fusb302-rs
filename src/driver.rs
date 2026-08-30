@@ -16,12 +16,12 @@ use crate::{
         CONTROL1_RX_FLUSH, CONTROL2_MODE_DFP, CONTROL2_MODE_DRP, CONTROL2_MODE_UFP,
         CONTROL2_RW_MASK, CONTROL2_TOGGLE, CONTROL3_AUTO_HARD_RESET, CONTROL3_AUTO_RETRY,
         CONTROL3_AUTO_SOFT_RESET, CONTROL3_BIST_TMODE, CONTROL3_RETRY_COUNT_MASK, CcPin, CcPull,
-        DataRole, MEASURE_MDAC_MASK, MEASURE_MEAS_VBUS, MEASURE_RW_MASK, POWER_ALL, PdRevision,
-        PowerRole, RESET_PD, RESET_SW, Register, STATUS0_COMP, STATUS1_RX_EMPTY, STATUS1_TX_EMPTY,
-        SWITCHES0_MEAS_CC1, SWITCHES0_MEAS_CC2, SWITCHES0_PDWN1, SWITCHES0_PDWN2, SWITCHES0_PU_EN1,
-        SWITCHES0_PU_EN2, SWITCHES0_VCONN_CC1, SWITCHES0_VCONN_CC2, SWITCHES1_AUTO_CRC,
-        SWITCHES1_DATA_ROLE, SWITCHES1_POWER_ROLE, SWITCHES1_RW_MASK, SWITCHES1_SPEC_REV_MASK,
-        SWITCHES1_TXCC1, SWITCHES1_TXCC2, ToggleMode,
+        DataRole, MEASURE_MDAC_MASK, MEASURE_MEAS_VBUS, MEASURE_RW_MASK, POWER_ALL,
+        POWER_TOGGLE_DETECTION, PdRevision, PowerRole, RESET_PD, RESET_SW, Register, STATUS0_COMP,
+        STATUS1_RX_EMPTY, STATUS1_TX_EMPTY, SWITCHES0_MEAS_CC1, SWITCHES0_MEAS_CC2,
+        SWITCHES0_PDWN1, SWITCHES0_PDWN2, SWITCHES0_PU_EN1, SWITCHES0_PU_EN2, SWITCHES0_VCONN_CC1,
+        SWITCHES0_VCONN_CC2, SWITCHES1_AUTO_CRC, SWITCHES1_DATA_ROLE, SWITCHES1_POWER_ROLE,
+        SWITCHES1_RW_MASK, SWITCHES1_SPEC_REV_MASK, SWITCHES1_TXCC1, SWITCHES1_TXCC2, ToggleMode,
     },
 };
 
@@ -271,7 +271,7 @@ where
         .await
     }
 
-    /// Clear stale toggle state, enable the documented toggle interrupt mask, and start toggling.
+    /// Clear stale toggle state, enter the documented toggle power mode, and start toggling.
     ///
     /// Poll [`Self::take_toggle_result`] after this call. A value returned by
     /// [`Self::toggle_status`] is not an attach indication by itself; it becomes
@@ -280,6 +280,8 @@ where
         &mut self,
         mode: ToggleMode,
     ) -> Result<(), Error<I2C::Error>> {
+        self.write_register(Register::Power, POWER_TOGGLE_DETECTION)
+            .await?;
         self.set_interrupt_masks(InterruptMasks::toggle_detection())
             .await?;
         self.read_interrupts().await?;
@@ -309,6 +311,8 @@ where
     /// This reads and clears the FUSB302B interrupt latches first. It reads
     /// `STATUS1A` only when the typed `TOGDONE` event is present, preventing a
     /// stale or in-progress toggle state from being treated as an attachment.
+    /// When a result is present, this also restores all PHY power domains so
+    /// the caller can configure the selected CC path and begin BMC traffic.
     pub async fn take_toggle_result(
         &mut self,
     ) -> Result<Option<crate::ToggleStatus>, Error<I2C::Error>> {
@@ -316,7 +320,9 @@ where
             return Ok(None);
         }
 
-        Ok(Some(self.toggle_status().await?))
+        let status = self.toggle_status().await?;
+        self.write_register(Register::Power, POWER_ALL).await?;
+        Ok(Some(status))
     }
 
     /// Flush both hardware FIFOs.

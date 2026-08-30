@@ -275,6 +275,7 @@ fn interrupt_snapshot_is_one_contiguous_clear_on_read_transaction() {
 #[test]
 fn toggle_detection_clears_stale_interrupts_before_starting_toggle() {
     let expectations = [
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![POWER, 0x01]),
         I2cTransaction::write(DEFAULT_ADDRESS, vec![MASK, 0xfe]),
         I2cTransaction::write(DEFAULT_ADDRESS, vec![MASKA, 0xbf]),
         I2cTransaction::write(DEFAULT_ADDRESS, vec![MASKB, 0x01]),
@@ -296,6 +297,7 @@ fn toggle_result_requires_togdone_before_reading_status() {
         I2cTransaction::write_read(DEFAULT_ADDRESS, vec![INTERRUPTA], vec![0, 0, 0, 0, 0]),
         I2cTransaction::write_read(DEFAULT_ADDRESS, vec![INTERRUPTA], vec![0x40, 0, 0, 0, 0]),
         write_read(STATUS1A, 0x08),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![POWER, 0x0f]),
     ];
     let bus = I2cMock::new(&expectations);
     let mut driver = Fusb302::new(bus);
