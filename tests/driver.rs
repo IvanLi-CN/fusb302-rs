@@ -6,8 +6,8 @@ use embedded_hal::i2c::ErrorKind;
 #[cfg(not(feature = "async"))]
 use fusb302::{
     CcPin, CcPull, DataRole, Error, HostCurrent, InterruptMasks, PdRevision, PhyConfig, PowerRole,
-    ReceiveError, ReceiveSopMask, RetryCount, ToggleMode, ToggleStatus, VbusComparator,
-    VbusThreshold,
+    ReceiveError, ReceiveSopMask, RetryCount, ToggleMode, ToggleStatus, TransmitStatus,
+    VbusComparator, VbusThreshold,
 };
 #[cfg(feature = "async")]
 use fusb302::{CcPin, InterruptMasks, PhyConfig};
@@ -307,6 +307,29 @@ fn toggle_result_requires_togdone_before_reading_status() {
         driver.take_toggle_result().unwrap(),
         Some(ToggleStatus::SourceCc1)
     );
+    driver.release().done();
+}
+
+#[cfg(not(feature = "async"))]
+#[test]
+fn transmit_status_reports_goodcrc_acknowledgement_or_retry_failure() {
+    let expectations = [
+        I2cTransaction::write_read(DEFAULT_ADDRESS, vec![INTERRUPTA], vec![0x04, 0, 0, 0, 0]),
+        I2cTransaction::write_read(DEFAULT_ADDRESS, vec![INTERRUPTA], vec![0x14, 0, 0, 0, 0]),
+        I2cTransaction::write_read(DEFAULT_ADDRESS, vec![INTERRUPTA], vec![0, 0, 0, 0, 0]),
+    ];
+    let bus = I2cMock::new(&expectations);
+    let mut driver = Fusb302::new(bus);
+
+    assert_eq!(
+        driver.take_transmit_status().unwrap(),
+        Some(TransmitStatus::Sent)
+    );
+    assert_eq!(
+        driver.take_transmit_status().unwrap(),
+        Some(TransmitStatus::RetryFailed)
+    );
+    assert_eq!(driver.take_transmit_status().unwrap(), None);
     driver.release().done();
 }
 

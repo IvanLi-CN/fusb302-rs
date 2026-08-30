@@ -7,8 +7,8 @@ use embedded_hal_async::i2c::I2c;
 
 use crate::{
     DEFAULT_ADDRESS, DeviceId, HostCurrent, InterruptMasks, InterruptSnapshot,
-    MAX_PD_PAYLOAD_BYTES, PdPacket, PhyConfig, ReceiveSopMask, SopType, Status, VbusComparator,
-    VbusThreshold,
+    MAX_PD_PAYLOAD_BYTES, PdPacket, PhyConfig, ReceiveSopMask, SopType, Status, TransmitStatus,
+    VbusComparator, VbusThreshold,
     error::{Error, ReceiveError},
     registers::{
         CONTROL0_HOST_CURRENT_MASK, CONTROL0_RW_MASK, CONTROL0_TX_FLUSH, CONTROL1_BIST_MODE2,
@@ -323,6 +323,18 @@ where
         let status = self.toggle_status().await?;
         self.write_register(Register::Power, POWER_ALL).await?;
         Ok(Some(status))
+    }
+
+    /// Consume the completed PD-transmit outcome, if one is pending.
+    ///
+    /// This reads and clears the FUSB302B interrupt latches. It reports a
+    /// retry failure only after the hardware exhausted its configured retry
+    /// count without receiving GoodCRC, so callers can distinguish FIFO
+    /// queuing from a packet accepted by the link partner.
+    pub async fn take_transmit_status(
+        &mut self,
+    ) -> Result<Option<TransmitStatus>, Error<I2C::Error>> {
+        Ok(self.read_interrupts().await?.transmit_status())
     }
 
     /// Flush both hardware FIFOs.

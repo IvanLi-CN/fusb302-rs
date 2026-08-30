@@ -291,6 +291,32 @@ impl InterruptSnapshot {
     pub const fn toggle_done(self) -> bool {
         self.interrupt_a & (1 << 6) != 0
     }
+
+    /// Return the completed PD-transmit outcome, if the hardware has one.
+    ///
+    /// A retry failure takes precedence because no GoodCRC was received for
+    /// the packet. The FUSB302B clears this indication when its interrupt
+    /// registers are read. Prefer [`crate::Fusb302::take_transmit_status`]
+    /// when polling a transmitted packet.
+    pub const fn transmit_status(self) -> Option<TransmitStatus> {
+        if self.interrupt_a & (1 << 4) != 0 {
+            Some(TransmitStatus::RetryFailed)
+        } else if self.interrupt_a & (1 << 2) != 0 {
+            Some(TransmitStatus::Sent)
+        } else {
+            None
+        }
+    }
+}
+
+/// Completion outcome of one PD packet sent by the FUSB302B.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub enum TransmitStatus {
+    /// The packet was transmitted and acknowledged before the retry limit.
+    Sent,
+    /// The packet exhausted the configured automatic retries without GoodCRC.
+    RetryFailed,
 }
 
 /// Non-destructive snapshot of FUSB302B status registers.
