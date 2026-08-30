@@ -330,3 +330,47 @@ pub enum VbusComparator {
     /// VBUS is above the configured threshold.
     AboveThreshold,
 }
+
+/// Result of the FUSB302B autonomous Type-C toggle engine.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub enum ToggleStatus {
+    /// Toggle logic is still running.
+    Running,
+    /// A source termination was detected on CC1.
+    SourceCc1,
+    /// A source termination was detected on CC2.
+    SourceCc2,
+    /// A sink termination was detected on CC1.
+    SinkCc1,
+    /// A sink termination was detected on CC2.
+    SinkCc2,
+    /// An audio accessory was detected.
+    AudioAccessory,
+    /// The hardware returned an undefined TOGSS encoding.
+    Unknown(u8),
+}
+
+impl ToggleStatus {
+    /// Decode the three-bit TOGSS field from STATUS1A.
+    pub const fn from_status1a(status1a: u8) -> Self {
+        match (status1a >> 3) & 0x07 {
+            0b000 => Self::Running,
+            0b001 => Self::SourceCc1,
+            0b010 => Self::SourceCc2,
+            0b101 => Self::SinkCc1,
+            0b110 => Self::SinkCc2,
+            0b111 => Self::AudioAccessory,
+            value => Self::Unknown(value),
+        }
+    }
+
+    /// Return the settled CC pin, if the toggle engine found one.
+    pub const fn settled_cc(self) -> Option<crate::CcPin> {
+        match self {
+            Self::SourceCc1 | Self::SinkCc1 => Some(crate::CcPin::Cc1),
+            Self::SourceCc2 | Self::SinkCc2 => Some(crate::CcPin::Cc2),
+            Self::Running | Self::AudioAccessory | Self::Unknown(_) => None,
+        }
+    }
+}

@@ -279,6 +279,12 @@ where
         .await
     }
 
+    /// Read the autonomous Type-C toggle result from STATUS1A.
+    pub async fn toggle_status(&mut self) -> Result<crate::ToggleStatus, Error<I2C::Error>> {
+        let status1a = self.read_register(Register::Status1A).await?;
+        Ok(crate::ToggleStatus::from_status1a(status1a))
+    }
+
     /// Flush both hardware FIFOs.
     pub async fn flush_fifos(&mut self) -> Result<(), Error<I2C::Error>> {
         self.update_register(Register::Control0, |value| {
