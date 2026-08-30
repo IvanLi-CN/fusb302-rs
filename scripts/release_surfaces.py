@@ -92,12 +92,15 @@ def tag_commit_sha(repo: str, tag: str) -> str | None:
 
 
 def release(repo: str, tag: str) -> dict[str, Any] | None:
-    try:
-        return gh_json(f"repos/{repo}/releases/tags/{tag}")
-    except SurfaceError as error:
-        if "HTTP 404" in str(error) or "Not Found" in str(error):
-            return None
-        raise
+    # GitHub's get-by-tag route treats a slash in the tag as a path
+    # separator even when it is percent-encoded. Release tags intentionally
+    # use the `release/<version>` namespace, so resolve them from the list
+    # endpoint instead of relying on that route.
+    releases = gh_json(f"repos/{repo}/releases?per_page=100")
+    for candidate in releases:
+        if candidate.get("tag_name") == tag:
+            return candidate
+    return None
 
 
 def ensure_draft(
