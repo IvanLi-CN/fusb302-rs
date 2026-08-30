@@ -186,6 +186,17 @@ where
         .await
     }
 
+    /// Leave VBUS comparator mode and route the measurement block to one CC pin.
+    ///
+    /// The FUSB302B requires both CC measurement switches to remain open while
+    /// `MEAS_VBUS` is enabled. Clear that mode before reconnecting a CC path so
+    /// BMC traffic can resume after a VBUS safety sample.
+    pub async fn restore_cc_measurement(&mut self, pin: CcPin) -> Result<(), Error<I2C::Error>> {
+        self.update_register(Register::Measure, |value| value & !MEASURE_MEAS_VBUS)
+            .await?;
+        self.set_measure_cc(Some(pin)).await
+    }
+
     /// Select the Type-C Rp current advertisement without changing other controls.
     pub async fn set_host_current(
         &mut self,

@@ -236,6 +236,10 @@ fn vbus_measurement_uses_a_typed_threshold_and_comparator_result() {
         write_read(MEASURE, 0xb1),
         I2cTransaction::write(DEFAULT_ADDRESS, vec![MEASURE, 0xd4]),
         write_read(STATUS0, 0x20),
+        write_read(MEASURE, 0xd4),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![MEASURE, 0x94]),
+        write_read(SWITCHES0, 0xa3),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![SWITCHES0, 0xa7]),
     ];
     let bus = I2cMock::new(&expectations);
     let mut driver = Fusb302::new(bus);
@@ -249,6 +253,7 @@ fn vbus_measurement_uses_a_typed_threshold_and_comparator_result() {
     );
     assert_eq!(VbusThreshold::NINE_VOLTS_MIN.nominal_millivolts(), 8_820);
     assert!(VbusThreshold::from_mdac_step(64).is_none());
+    driver.restore_cc_measurement(CcPin::Cc1).unwrap();
     driver.release().done();
 }
 
