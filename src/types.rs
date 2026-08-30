@@ -285,3 +285,48 @@ pub struct Status {
     /// Raw `STATUS1A` (0x3d) bits.
     pub status1a: u8,
 }
+
+/// Threshold configured into the FUSB302B VBUS measurement DAC.
+///
+/// The FUSB302B VBUS comparator increments in nominal 420 mV steps. The
+/// threshold is a bounded typed value so downstream code never has to address
+/// the MEASURE register or manufacture MDAC bit patterns.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub struct VbusThreshold(u8);
+
+impl VbusThreshold {
+    /// A nominal 4.62 V threshold suitable for confirming vSafe5V.
+    pub const VSAFE5: Self = Self(10);
+    /// A nominal 8.82 V lower bound for a fixed 9 V contract.
+    pub const NINE_VOLTS_MIN: Self = Self(20);
+    /// A nominal 12.18 V upper guard for a fixed 9 V contract.
+    pub const NINE_VOLTS_MAX: Self = Self(28);
+
+    /// Construct a threshold from a validated FUSB302B DAC step (0 through
+    /// 63). Returns `None` instead of allowing a value outside the hardware
+    /// range.
+    pub const fn from_mdac_step(step: u8) -> Option<Self> {
+        if step <= 0x3f { Some(Self(step)) } else { None }
+    }
+
+    /// Return the FUSB302B DAC step selected by this threshold.
+    pub const fn mdac_step(self) -> u8 {
+        self.0
+    }
+
+    /// Return the nominal comparator threshold in millivolts.
+    pub const fn nominal_millivolts(self) -> u16 {
+        (self.0 as u16 + 1) * 420
+    }
+}
+
+/// Result returned by the FUSB302B VBUS comparator.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub enum VbusComparator {
+    /// VBUS is at or below the configured threshold.
+    AtOrBelowThreshold,
+    /// VBUS is above the configured threshold.
+    AboveThreshold,
+}

@@ -5,8 +5,8 @@ use fusb302::{DEFAULT_ADDRESS, Fusb302, PacketError, PdPacket, SopType};
 use embedded_hal::i2c::ErrorKind;
 #[cfg(not(feature = "async"))]
 use fusb302::{
-    CcPin, CcPull, DataRole, Error, InterruptMasks, PdRevision, PhyConfig, PowerRole, ReceiveError,
-    ReceiveSopMask, RetryCount, ToggleMode,
+    CcPin, CcPull, DataRole, Error, HostCurrent, InterruptMasks, PdRevision, PhyConfig, PowerRole,
+    ReceiveError, ReceiveSopMask, RetryCount, ToggleMode, VbusComparator, VbusThreshold,
 };
 #[cfg(feature = "async")]
 use fusb302::{CcPin, InterruptMasks, PhyConfig};
@@ -15,6 +15,8 @@ use fusb302::{CcPin, InterruptMasks, PhyConfig};
 const DEVICE_ID: u8 = 0x01;
 const SWITCHES0: u8 = 0x02;
 const SWITCHES1: u8 = 0x03;
+#[cfg(not(feature = "async"))]
+const MEASURE: u8 = 0x04;
 const CONTROL0: u8 = 0x06;
 const CONTROL1: u8 = 0x07;
 #[cfg(not(feature = "async"))]
@@ -217,10 +219,35 @@ fn receiver_configuration_selects_measurement_host_current_and_interrupt_masks()
     let mut driver = Fusb302::new(bus);
 
     driver.set_measure_cc(Some(CcPin::Cc2)).unwrap();
-    driver.set_host_current_default().unwrap();
+    driver.set_host_current(HostCurrent::Default).unwrap();
     driver
         .set_interrupt_masks(InterruptMasks::new(0x7d, 0xe0, 0x00))
         .unwrap();
+    driver.release().done();
+}
+
+#[cfg(not(feature = "async"))]
+#[test]
+fn vbus_measurement_uses_a_typed_threshold_and_comparator_result() {
+    let expectations = [
+        write_read(SWITCHES0, 0xaf),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![SWITCHES0, 0xa3]),
+        write_read(MEASURE, 0xb1),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![MEASURE, 0xd4]),
+        write_read(STATUS0, 0x20),
+    ];
+    let bus = I2cMock::new(&expectations);
+    let mut driver = Fusb302::new(bus);
+
+    driver
+        .configure_vbus_measurement(VbusThreshold::NINE_VOLTS_MIN)
+        .unwrap();
+    assert_eq!(
+        driver.read_vbus_comparator().unwrap(),
+        VbusComparator::AboveThreshold
+    );
+    assert_eq!(VbusThreshold::NINE_VOLTS_MIN.nominal_millivolts(), 8_820);
+    assert!(VbusThreshold::from_mdac_step(64).is_none());
     driver.release().done();
 }
 

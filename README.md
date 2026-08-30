@@ -5,8 +5,9 @@ USB Power Delivery BMC PHY devices. FUSB302BMPX is the initial validation
 target.
 
 The crate provides register-level PHY control, Type-C electrical controls,
-interrupt and FIFO access, and USB PD packet transport. It deliberately does
-not implement USB PD policy, contract negotiation, or power-management decisions.
+typed Type-C Rp current selection, VBUS comparator measurement, interrupt and
+FIFO access, and USB PD packet transport. It deliberately does not implement
+USB PD policy, contract negotiation, or power-management decisions.
 
 ## Usage
 
@@ -23,6 +24,13 @@ fn take_bus<I2C: embedded_hal::i2c::I2c>(i2c: I2C) -> I2C {
 before explicitly configuring the PHY. It resets and flushes the device without
 selecting CC pull resistors, VCONN, BMC receive modes, GoodCRC, or reset/retry
 automation.
+
+`HostCurrent` expresses the three Type-C Rp advertisements without exposing
+`HOST_CUR` bit values. `VbusThreshold` expresses the FUSB302B's nominal 420 mV
+VBUS MDAC steps; call `configure_vbus_measurement` followed by
+`read_vbus_comparator` to use the comparator. Both APIs remain PHY operations:
+the application is responsible for PD policy and for deciding whether a
+measured voltage permits a power-path transition.
 
 When built with the `async` feature, the same API awaits `embedded-hal-async`
 I2C operations:
