@@ -6,17 +6,18 @@ use embedded_hal::i2c::I2c;
 use embedded_hal_async::i2c::I2c;
 
 use crate::{
-    DEFAULT_ADDRESS, DeviceId, InterruptMasks, InterruptSnapshot, MAX_PD_PAYLOAD_BYTES, PdPacket,
-    PhyConfig, ReceiveSopMask, SopType, Status,
+    DEFAULT_ADDRESS, DeviceId, HostCurrent, InterruptMasks, InterruptSnapshot,
+    MAX_PD_PAYLOAD_BYTES, PdPacket, PhyConfig, ReceiveSopMask, SopType, Status, VbusComparator,
+    VbusThreshold,
     error::{Error, ReceiveError},
     registers::{
-        CONTROL0_HOST_CURRENT_DEFAULT, CONTROL0_HOST_CURRENT_MASK, CONTROL0_RW_MASK,
-        CONTROL0_TX_FLUSH, CONTROL1_BIST_MODE2, CONTROL1_ENSOP1, CONTROL1_ENSOP1DB,
-        CONTROL1_ENSOP2, CONTROL1_ENSOP2DB, CONTROL1_RW_MASK, CONTROL1_RX_FLUSH, CONTROL2_MODE_DFP,
-        CONTROL2_MODE_DRP, CONTROL2_MODE_UFP, CONTROL2_RW_MASK, CONTROL2_TOGGLE,
-        CONTROL3_AUTO_HARD_RESET, CONTROL3_AUTO_RETRY, CONTROL3_AUTO_SOFT_RESET,
-        CONTROL3_BIST_TMODE, CONTROL3_RETRY_COUNT_MASK, CcPin, CcPull, DataRole, POWER_ALL,
-        PdRevision, PowerRole, RESET_PD, RESET_SW, Register, STATUS1_RX_EMPTY, STATUS1_TX_EMPTY,
+        CONTROL0_HOST_CURRENT_MASK, CONTROL0_RW_MASK, CONTROL0_TX_FLUSH, CONTROL1_BIST_MODE2,
+        CONTROL1_ENSOP1, CONTROL1_ENSOP1DB, CONTROL1_ENSOP2, CONTROL1_ENSOP2DB, CONTROL1_RW_MASK,
+        CONTROL1_RX_FLUSH, CONTROL2_MODE_DFP, CONTROL2_MODE_DRP, CONTROL2_MODE_UFP,
+        CONTROL2_RW_MASK, CONTROL2_TOGGLE, CONTROL3_AUTO_HARD_RESET, CONTROL3_AUTO_RETRY,
+        CONTROL3_AUTO_SOFT_RESET, CONTROL3_BIST_TMODE, CONTROL3_RETRY_COUNT_MASK, CcPin, CcPull,
+        DataRole, MEASURE_MDAC_MASK, MEASURE_MEAS_VBUS, MEASURE_RW_MASK, POWER_ALL, PdRevision,
+        PowerRole, RESET_PD, RESET_SW, Register, STATUS0_COMP, STATUS1_RX_EMPTY, STATUS1_TX_EMPTY,
         SWITCHES0_MEAS_CC1, SWITCHES0_MEAS_CC2, SWITCHES0_PDWN1, SWITCHES0_PDWN2, SWITCHES0_PU_EN1,
         SWITCHES0_PU_EN2, SWITCHES0_VCONN_CC1, SWITCHES0_VCONN_CC2, SWITCHES1_AUTO_CRC,
         SWITCHES1_DATA_ROLE, SWITCHES1_POWER_ROLE, SWITCHES1_RW_MASK, SWITCHES1_SPEC_REV_MASK,
@@ -185,12 +186,51 @@ where
         .await
     }
 
-    /// Select the documented default `HOST_CUR` setting without changing other controls.
-    pub async fn set_host_current_default(&mut self) -> Result<(), Error<I2C::Error>> {
+    /// Select the Type-C Rp current advertisement without changing other controls.
+    pub async fn set_host_current(
+        &mut self,
+        current: HostCurrent,
+    ) -> Result<(), Error<I2C::Error>> {
         self.update_register(Register::Control0, |value| {
-            (value & !CONTROL0_HOST_CURRENT_MASK) | CONTROL0_HOST_CURRENT_DEFAULT
+            (value & !CONTROL0_HOST_CURRENT_MASK) | current.control0_bits()
         })
         .await
+    }
+
+    /// Select the documented default `HOST_CUR` setting without changing other controls.
+    pub async fn set_host_current_default(&mut self) -> Result<(), Error<I2C::Error>> {
+        self.set_host_current(HostCurrent::Default).await
+    }
+
+    /// Route the measurement DAC/comparator to VBUS at the supplied threshold.
+    ///
+    /// This disconnects both CC measurement switches as required by the
+    /// FUSB302B data sheet. Call [`Self::read_vbus_comparator`] after this
+    /// method to obtain the comparator state.
+    pub async fn configure_vbus_measurement(
+        &mut self,
+        threshold: VbusThreshold,
+    ) -> Result<(), Error<I2C::Error>> {
+        self.update_register(Register::Switches0, |value| {
+            value & !(SWITCHES0_MEAS_CC1 | SWITCHES0_MEAS_CC2)
+        })
+        .await?;
+        self.update_register(Register::Measure, |value| {
+            (value & !MEASURE_RW_MASK)
+                | MEASURE_MEAS_VBUS
+                | (threshold.mdac_step() & MEASURE_MDAC_MASK)
+        })
+        .await
+    }
+
+    /// Read the VBUS comparator after [`Self::configure_vbus_measurement`].
+    pub async fn read_vbus_comparator(&mut self) -> Result<VbusComparator, Error<I2C::Error>> {
+        let status = self.read_register(Register::Status0).await?;
+        Ok(if status & STATUS0_COMP != 0 {
+            VbusComparator::AboveThreshold
+        } else {
+            VbusComparator::AtOrBelowThreshold
+        })
     }
 
     /// Write all three interrupt-mask registers as one explicit PHY setting.

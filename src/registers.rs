@@ -77,6 +77,28 @@ pub enum CcPull {
     Up,
 }
 
+/// Type-C source current advertised by the FUSB302B Rp pull-up.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+pub enum HostCurrent {
+    /// USB Type-C default current advertisement.
+    Default,
+    /// USB Type-C 1.5 A current advertisement.
+    MilliAmps1500,
+    /// USB Type-C 3.0 A current advertisement.
+    MilliAmps3000,
+}
+
+impl HostCurrent {
+    pub(crate) const fn control0_bits(self) -> u8 {
+        match self {
+            Self::Default => 0b01 << 2,
+            Self::MilliAmps1500 => 0b10 << 2,
+            Self::MilliAmps3000 => 0b11 << 2,
+        }
+    }
+}
+
 /// USB PD power role encoded in a transmitted PD header.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
@@ -146,8 +168,10 @@ pub(crate) const SWITCHES1_RW_MASK: u8 = SWITCHES1_POWER_ROLE
     | SWITCHES1_TXCC1;
 pub(crate) const CONTROL0_TX_FLUSH: u8 = 1 << 6;
 pub(crate) const CONTROL0_HOST_CURRENT_MASK: u8 = 0b11 << 2;
-pub(crate) const CONTROL0_HOST_CURRENT_DEFAULT: u8 = 0b01 << 2;
 pub(crate) const CONTROL0_RW_MASK: u8 = 0b0010_1110;
+pub(crate) const MEASURE_MEAS_VBUS: u8 = 1 << 6;
+pub(crate) const MEASURE_MDAC_MASK: u8 = 0b0011_1111;
+pub(crate) const MEASURE_RW_MASK: u8 = MEASURE_MEAS_VBUS | MEASURE_MDAC_MASK;
 pub(crate) const CONTROL1_ENSOP2DB: u8 = 1 << 6;
 pub(crate) const CONTROL1_ENSOP1DB: u8 = 1 << 5;
 pub(crate) const CONTROL1_BIST_MODE2: u8 = 1 << 4;
@@ -171,3 +195,4 @@ pub(crate) const RESET_PD: u8 = 1 << 1;
 pub(crate) const RESET_SW: u8 = 1;
 pub(crate) const STATUS1_RX_EMPTY: u8 = 1 << 5;
 pub(crate) const STATUS1_TX_EMPTY: u8 = 1 << 3;
+pub(crate) const STATUS0_COMP: u8 = 1 << 5;
