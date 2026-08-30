@@ -6,7 +6,8 @@ use embedded_hal::i2c::ErrorKind;
 #[cfg(not(feature = "async"))]
 use fusb302::{
     CcPin, CcPull, DataRole, Error, HostCurrent, InterruptMasks, PdRevision, PhyConfig, PowerRole,
-    ReceiveError, ReceiveSopMask, RetryCount, ToggleMode, VbusComparator, VbusThreshold,
+    ReceiveError, ReceiveSopMask, RetryCount, ToggleMode, ToggleStatus, VbusComparator,
+    VbusThreshold,
 };
 #[cfg(feature = "async")]
 use fusb302::{CcPin, InterruptMasks, PhyConfig};
@@ -266,6 +267,44 @@ fn interrupt_snapshot_is_one_contiguous_clear_on_read_transaction() {
     assert_eq!(interrupts.interrupt_a, 0x04);
     assert_eq!(interrupts.interrupt_b, 0x01);
     assert_eq!(interrupts.interrupt, 0x80);
+    assert!(!interrupts.toggle_done());
+    driver.release().done();
+}
+
+#[cfg(not(feature = "async"))]
+#[test]
+fn toggle_detection_clears_stale_interrupts_before_starting_toggle() {
+    let expectations = [
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![MASK, 0xfe]),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![MASKA, 0xbf]),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![MASKB, 0x01]),
+        I2cTransaction::write_read(DEFAULT_ADDRESS, vec![INTERRUPTA], vec![0, 0, 0, 0, 0]),
+        write_read(CONTROL2, 0xe0),
+        I2cTransaction::write(DEFAULT_ADDRESS, vec![CONTROL2, 0xe7]),
+    ];
+    let bus = I2cMock::new(&expectations);
+    let mut driver = Fusb302::new(bus);
+
+    driver.arm_toggle_detection(ToggleMode::Source).unwrap();
+    driver.release().done();
+}
+
+#[cfg(not(feature = "async"))]
+#[test]
+fn toggle_result_requires_togdone_before_reading_status() {
+    let expectations = [
+        I2cTransaction::write_read(DEFAULT_ADDRESS, vec![INTERRUPTA], vec![0, 0, 0, 0, 0]),
+        I2cTransaction::write_read(DEFAULT_ADDRESS, vec![INTERRUPTA], vec![0x40, 0, 0, 0, 0]),
+        write_read(STATUS1A, 0x08),
+    ];
+    let bus = I2cMock::new(&expectations);
+    let mut driver = Fusb302::new(bus);
+
+    assert_eq!(driver.take_toggle_result().unwrap(), None);
+    assert_eq!(
+        driver.take_toggle_result().unwrap(),
+        Some(ToggleStatus::SourceCc1)
+    );
     driver.release().done();
 }
 
