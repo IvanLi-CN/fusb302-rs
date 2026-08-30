@@ -271,6 +271,21 @@ where
         .await
     }
 
+    /// Clear stale toggle state, enable the documented toggle interrupt mask, and start toggling.
+    ///
+    /// Poll [`Self::take_toggle_result`] after this call. A value returned by
+    /// [`Self::toggle_status`] is not an attach indication by itself; it becomes
+    /// authoritative only after the FUSB302B has reported toggle completion.
+    pub async fn arm_toggle_detection(
+        &mut self,
+        mode: ToggleMode,
+    ) -> Result<(), Error<I2C::Error>> {
+        self.set_interrupt_masks(InterruptMasks::toggle_detection())
+            .await?;
+        self.read_interrupts().await?;
+        self.start_toggle(mode).await
+    }
+
     /// Stop autonomous Type-C toggling while retaining the currently selected mode bits.
     pub async fn stop_toggle(&mut self) -> Result<(), Error<I2C::Error>> {
         self.update_register(Register::Control2, |value| {
@@ -279,10 +294,29 @@ where
         .await
     }
 
-    /// Read the autonomous Type-C toggle result from STATUS1A.
+    /// Read the raw autonomous Type-C toggle state from `STATUS1A`.
+    ///
+    /// This status alone does not prove a partner is attached. Use
+    /// [`Self::take_toggle_result`] to consume the FUSB302B `TOGDONE` event
+    /// before acting on it.
     pub async fn toggle_status(&mut self) -> Result<crate::ToggleStatus, Error<I2C::Error>> {
         let status1a = self.read_register(Register::Status1A).await?;
         Ok(crate::ToggleStatus::from_status1a(status1a))
+    }
+
+    /// Consume a completed autonomous Type-C toggle result, if one is pending.
+    ///
+    /// This reads and clears the FUSB302B interrupt latches first. It reads
+    /// `STATUS1A` only when the typed `TOGDONE` event is present, preventing a
+    /// stale or in-progress toggle state from being treated as an attachment.
+    pub async fn take_toggle_result(
+        &mut self,
+    ) -> Result<Option<crate::ToggleStatus>, Error<I2C::Error>> {
+        if !self.read_interrupts().await?.toggle_done() {
+            return Ok(None);
+        }
+
+        Ok(Some(self.toggle_status().await?))
     }
 
     /// Flush both hardware FIFOs.

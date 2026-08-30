@@ -155,6 +155,17 @@ impl InterruptMasks {
         }
     }
 
+    /// Mask every interrupt except the autonomous Type-C toggle completion signal.
+    ///
+    /// This is the documented mask set for polling [`Fusb302::take_toggle_result`].
+    /// It keeps unrelated interrupt sources from asserting the shared interrupt line
+    /// while preserving the FUSB302B `TOGDONE` latch.
+    ///
+    /// [`Fusb302::take_toggle_result`]: crate::Fusb302::take_toggle_result
+    pub const fn toggle_detection() -> Self {
+        Self::new(0xfe, 0xbf, 0x01)
+    }
+
     pub(crate) const fn primary(self) -> u8 {
         self.primary
     }
@@ -270,6 +281,16 @@ pub struct InterruptSnapshot {
     pub interrupt_a: u8,
     /// Raw `INTERRUPTB` (0x3f) bits.
     pub interrupt_b: u8,
+}
+
+impl InterruptSnapshot {
+    /// Return whether an autonomous Type-C toggle operation completed.
+    ///
+    /// The FUSB302B clears this indication when its interrupt registers are read.
+    /// Prefer [`crate::Fusb302::take_toggle_result`] when using the toggle engine.
+    pub const fn toggle_done(self) -> bool {
+        self.interrupt_a & (1 << 6) != 0
+    }
 }
 
 /// Non-destructive snapshot of FUSB302B status registers.
