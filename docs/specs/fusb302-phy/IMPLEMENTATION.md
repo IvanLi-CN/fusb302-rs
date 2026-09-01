@@ -26,6 +26,12 @@
   Release contract. Manual publication reuses the same checks for a selected
   merged source and exact SHA, with one version value that is either a semantic
   bump selector or an exact SemVer value.
+- Release failure notification preserves the failed `Release` `workflow_run`
+  filter and artifact context extraction while using the immutable Oidrune
+  reusable workflow reference `notify.yml@e48822f99c6402a753ed86557ea029754cbab20b`.
+  The caller supplies the complete project, status/result, failure title, source
+  SHA, version, and run URL summary with job-level OIDC permission and no legacy
+  Telegram secret.
 
 ## Remaining Gaps
 
