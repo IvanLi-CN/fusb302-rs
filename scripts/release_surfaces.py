@@ -219,7 +219,14 @@ def ensure_draft(
         Path(notes_path).unlink(missing_ok=True)
 
 
-def finalize(repo: str, tag: str, prerelease: bool) -> dict[str, Any]:
+def finalize(
+    repo: str,
+    tag: str,
+    prerelease: bool,
+    *,
+    visibility_attempts: int = RELEASE_VISIBILITY_ATTEMPTS,
+    visibility_delay_seconds: float = RELEASE_VISIBILITY_DELAY_SECONDS,
+) -> dict[str, Any]:
     current = release(repo, tag)
     if current is None:
         raise SurfaceError(f"GitHub Release {tag} does not exist")
@@ -227,8 +234,18 @@ def finalize(repo: str, tag: str, prerelease: bool) -> dict[str, Any]:
         arguments = ["release", "edit", tag, "--repo", repo, "--draft=false"]
         arguments.append("--prerelease=true" if prerelease else "--prerelease=false")
         gh_command(arguments)
-    final = release(repo, tag)
-    if final is None or final.get("draft"):
+    final = wait_for_release(
+        repo,
+        tag,
+        attempts=visibility_attempts,
+        delay_seconds=visibility_delay_seconds,
+    )
+    if final is None:
+        raise SurfaceError(
+            f"GitHub Release {tag} was not visible after "
+            f"{visibility_attempts} exact lookup attempts"
+        )
+    if final.get("draft"):
         raise SurfaceError(f"GitHub Release {tag} did not become public")
     return final
 

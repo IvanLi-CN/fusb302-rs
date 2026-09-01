@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from scripts.release_surfaces import ensure_draft, release
+from scripts.release_surfaces import SurfaceError, ensure_draft, finalize, release
 
 
 class ReleaseSurfaceTests(unittest.TestCase):
@@ -107,6 +107,89 @@ class ReleaseSurfaceTests(unittest.TestCase):
 
         self.assertEqual(result, published)
         command.assert_not_called()
+
+    def test_finalize_retries_when_the_published_release_is_not_immediately_visible(self):
+        repo = "IvanLi-CN/fusb302-rs"
+        tag = "release/0.2.2"
+        draft = {"tag_name": tag, "draft": True}
+        published = {"tag_name": tag, "draft": False}
+        calls = []
+
+        def record_command(arguments):
+            calls.append(arguments)
+            return "{}"
+
+        with (
+            patch(
+                "scripts.release_surfaces.release",
+                side_effect=[draft, None, published],
+            ),
+            patch("scripts.release_surfaces.gh_command", side_effect=record_command),
+            patch("scripts.release_surfaces.time.sleep") as sleep,
+        ):
+            result = finalize(
+                repo,
+                tag,
+                False,
+                visibility_attempts=2,
+                visibility_delay_seconds=0,
+            )
+
+        self.assertEqual(result, published)
+        self.assertEqual(calls[0][:3], ["release", "edit", tag])
+        sleep.assert_called_once_with(0)
+
+    def test_prepare_reports_bounded_visibility_failure(self):
+        repo = "IvanLi-CN/fusb302-rs"
+        tag = "release/0.2.2"
+        source_sha = "a" * 40
+        draft = {"tag_name": tag, "draft": True}
+
+        with (
+            patch("scripts.release_surfaces.tag_commit_sha", return_value=source_sha),
+            patch("scripts.release_surfaces.release", side_effect=[draft, None, None]),
+            patch("scripts.release_surfaces.gh_command", return_value="{}"),
+            patch("scripts.release_surfaces.time.sleep"),
+        ):
+            with self.assertRaisesRegex(
+                SurfaceError,
+                "was not visible after 2 exact lookup attempts",
+            ):
+                ensure_draft(
+                    repo,
+                    tag,
+                    source_sha,
+                    "fusb302 0.2.2",
+                    "notes",
+                    False,
+                    visibility_attempts=2,
+                    visibility_delay_seconds=0,
+                )
+
+    def test_finalize_reports_bounded_visibility_failure(self):
+        repo = "IvanLi-CN/fusb302-rs"
+        tag = "release/0.2.2"
+        draft = {"tag_name": tag, "draft": True}
+
+        with (
+            patch(
+                "scripts.release_surfaces.release",
+                side_effect=[draft, None, None],
+            ),
+            patch("scripts.release_surfaces.gh_command", return_value="{}"),
+            patch("scripts.release_surfaces.time.sleep"),
+        ):
+            with self.assertRaisesRegex(
+                SurfaceError,
+                "was not visible after 2 exact lookup attempts",
+            ):
+                finalize(
+                    repo,
+                    tag,
+                    False,
+                    visibility_attempts=2,
+                    visibility_delay_seconds=0,
+                )
 
 
 if __name__ == "__main__":
