@@ -85,8 +85,12 @@ or `patch` selects a semantic bump and must match the PR's `type:*` label; a
 SemVer value must match the source `Cargo.toml`. The workflow verifies signed
 intent and green CI before using the same OIDC publication path, and never
 repeats a crate publication for an existing version.
-The separate `Notify release failure` workflow reports the release unit through
-the shared Telegram notifier; it requires the repository `SHOUTRRR_URL` secret.
+The separate `Notify release failure` workflow runs only for failed `Release`
+`workflow_run` completions and calls Oidrune's immutable
+`notify.yml@e48822f99c6402a753ed86557ea029754cbab20b` reusable workflow. The
+caller uses job-scoped OIDC permission and Oidrune's default gateway, passing a
+complete summary with the project, status/result, failure title, source SHA,
+release version, and run URL; it does not require or forward a Telegram secret.
 
 ## License
 
