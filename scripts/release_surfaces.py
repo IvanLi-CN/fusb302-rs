@@ -9,12 +9,17 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Any
 
 
 class SurfaceError(RuntimeError):
     """A tag or GitHub Release conflicts with the requested source."""
+
+
+RELEASE_VISIBILITY_ATTEMPTS = 5
+RELEASE_VISIBILITY_DELAY_SECONDS = 1
 
 
 def gh_json(endpoint: str) -> Any:
@@ -92,14 +97,50 @@ def tag_commit_sha(repo: str, tag: str) -> str | None:
 
 
 def release(repo: str, tag: str) -> dict[str, Any] | None:
-    # GitHub's get-by-tag route treats a slash in the tag as a path
-    # separator even when it is percent-encoded. Release tags intentionally
-    # use the `release/<version>` namespace, so resolve them from the list
-    # endpoint instead of relying on that route.
-    releases = gh_json(f"repos/{repo}/releases?per_page=100")
-    for candidate in releases:
-        if candidate.get("tag_name") == tag:
-            return candidate
+    """Read a release by its complete tag without relying on list visibility."""
+    try:
+        payload = json.loads(
+            gh_command(
+                [
+                    "release",
+                    "view",
+                    tag,
+                    "--repo",
+                    repo,
+                    "--json",
+                    "tagName,isDraft,isPrerelease,targetCommitish",
+                ]
+            )
+        )
+    except SurfaceError as error:
+        if "not found" in str(error).lower() or "HTTP 404" in str(error):
+            return None
+        raise
+    return {
+        "tag_name": payload.get("tagName"),
+        "draft": payload.get("isDraft"),
+        "prerelease": payload.get("isPrerelease"),
+        "target_commitish": payload.get("targetCommitish"),
+    }
+
+
+def wait_for_release(
+    repo: str,
+    tag: str,
+    *,
+    attempts: int = RELEASE_VISIBILITY_ATTEMPTS,
+    delay_seconds: float = RELEASE_VISIBILITY_DELAY_SECONDS,
+) -> dict[str, Any] | None:
+    """Wait briefly for GitHub to expose a release created or edited by this run."""
+    if attempts < 1:
+        raise ValueError("attempts must be positive")
+
+    for attempt in range(attempts):
+        current = release(repo, tag)
+        if current is not None:
+            return current
+        if attempt + 1 < attempts:
+            time.sleep(delay_seconds)
     return None
 
 
@@ -110,6 +151,9 @@ def ensure_draft(
     title: str,
     notes: str,
     prerelease: bool,
+    *,
+    visibility_attempts: int = RELEASE_VISIBILITY_ATTEMPTS,
+    visibility_delay_seconds: float = RELEASE_VISIBILITY_DELAY_SECONDS,
 ) -> dict[str, Any]:
     existing_tag = tag_commit_sha(repo, tag)
     if existing_tag and existing_tag != source_sha:
@@ -141,11 +185,6 @@ def ensure_draft(
         else:
             if current.get("tag_name") != tag:
                 raise SurfaceError("GitHub Release tag does not match release unit")
-            if current.get("draft") is False and current.get("target_commitish") not in {
-                tag,
-                source_sha,
-            }:
-                raise SurfaceError("published GitHub Release cannot be retargeted")
             if current.get("draft"):
                 arguments = [
                     "release",
@@ -164,9 +203,17 @@ def ensure_draft(
         resolved = tag_commit_sha(repo, tag)
         if resolved != source_sha:
             raise SurfaceError(f"{tag} resolved to {resolved}, expected {source_sha}")
-        final = release(repo, tag)
+        final = wait_for_release(
+            repo,
+            tag,
+            attempts=visibility_attempts,
+            delay_seconds=visibility_delay_seconds,
+        )
         if final is None:
-            raise SurfaceError(f"GitHub Release {tag} was not created")
+            raise SurfaceError(
+                f"GitHub Release {tag} was not visible after "
+                f"{visibility_attempts} exact lookup attempts"
+            )
         return final
     finally:
         Path(notes_path).unlink(missing_ok=True)
