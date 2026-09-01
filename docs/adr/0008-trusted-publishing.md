@@ -7,11 +7,16 @@ environment or approval gate is part of the release path.
 
 ## Consequences
 
-Only the release job receives `id-token: write`; the GitHub-side release work
-receives the minimum explicit `contents: write` and read scopes it needs. Once
-one OIDC publication has completed and the release contract check has passed,
-the legacy `CARGO_REGISTRY_TOKEN` is revoked with no fallback publishing path.
-Manual publication uses the same short-lived OIDC credential and validation as
-the automatic path. Its one version value is either a semantic bump matching the
-PR intent or a SemVer value matching `Cargo.toml`; it does not introduce a
-registry token fallback.
+Only the crate publishing job receives `id-token: write` for crates.io Trusted
+Publishing; the GitHub-side release work receives the minimum explicit
+`contents: write` and read scopes it needs. The separate release-failure
+notification job may also receive job-scoped `id-token: write`, solely to make
+an Oidrune gateway handoff. That job has no `contents` permission and receives
+neither registry credentials nor the legacy Telegram secret.
+
+Once one OIDC publication has completed and the release contract check has
+passed, the legacy `CARGO_REGISTRY_TOKEN` is revoked with no fallback
+publishing path. Manual publication uses the same short-lived OIDC credential
+and validation as the automatic path. Its one version value is either a
+semantic bump matching the PR intent or a SemVer value matching `Cargo.toml`;
+it does not introduce a registry token fallback.

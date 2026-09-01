@@ -176,12 +176,15 @@ FUSB302B 是由 host software 驱动的 Type-C 与 USB-PD BMC PHY。驱动必须
   `minor`, or `patch` must match the PR type label; a SemVer value must match
   the source `Cargo.toml`. Both forms use the same label, version, CI, and OIDC
   checks and cannot republish an existing crate version. Release failure
-  notification includes the release intent, source SHA, target version, and run
-  URL.
+  notification runs only for failed `Release` `workflow_run` completions and
+  invokes `IvanLi-CN/oidrune/.github/workflows/notify.yml` at the trusted
+  release commit `e48822f99c6402a753ed86557ea029754cbab20b`. The caller grants
+  job-level `id-token: write`, uses Oidrune's default gateway, forwards no
+  Telegram secret, and supplies a complete summary containing the project,
+  status/result, failure title, target source SHA, target version, and run URL.
 
 ## Visual Evidence
 
-PR: none
 
 ## Related PRs
 

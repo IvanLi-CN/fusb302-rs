@@ -20,6 +20,10 @@ EXPECTED_RUST_JOBS = ("fmt", "clippy", "test", "docs", "msrv", "package")
 EXPECTED_CHECKS = ("Label Gate", *EXPECTED_RUST_JOBS)
 EXPECTED_TYPES = {"type:major", "type:minor", "type:patch", "type:none"}
 EXPECTED_CHANNELS = {"channel:stable", "channel:beta", "channel:dev"}
+OIDRUNE_NOTIFY_REF = (
+    "IvanLi-CN/oidrune/.github/workflows/notify.yml@"
+    "e48822f99c6402a753ed86557ea029754cbab20b"
+)
 
 
 def main() -> int:
@@ -101,12 +105,36 @@ def main() -> int:
     notify_workflow = NOTIFY_WORKFLOW_PATH.read_text(encoding="utf-8")
     if not re.search(r"^name: Notify release failure$", notify_workflow, re.MULTILINE):
         return fail("failure notifier must retain its stable workflow name")
+    if not re.search(r"^    name: Send Oidrune notification$", notify_workflow, re.MULTILINE):
+        return fail("failure notifier must expose its Oidrune job name")
     if "actions/checkout" in notify_workflow:
         return fail("failure notifier must not checkout repository code")
-    if "IvanLi-CN/github-workflows/.github/workflows/release-failure-telegram.yml@main" not in notify_workflow:
-        return fail("failure notifier must call the shared Telegram notifier")
-    if "SHOUTRRR_URL" not in notify_workflow:
-        return fail("failure notifier must require SHOUTRRR_URL")
+    if OIDRUNE_NOTIFY_REF not in notify_workflow:
+        return fail("failure notifier must call Oidrune at the trusted release SHA")
+    if "IvanLi-CN/github-workflows/.github/workflows/release-failure-telegram.yml@main" in notify_workflow:
+        return fail("failure notifier must not call the moving legacy Telegram workflow")
+    if "SHOUTRRR_URL" in notify_workflow or "secrets:" in notify_workflow:
+        return fail("failure notifier must not forward the legacy Telegram secret")
+    if "gateway_url:" in notify_workflow or "oidc_audience:" in notify_workflow:
+        return fail("failure notifier must use Oidrune's default gateway")
+    if "permissions:\n      id-token: write" not in notify_workflow:
+        return fail("failure notifier must grant the caller job id-token write permission")
+    if "workflows: [Release]" not in notify_workflow or "types: [completed]" not in notify_workflow:
+        return fail("failure notifier must retain the Release workflow_run completion filter")
+    if "github.event.workflow_run.conclusion == 'failure'" not in notify_workflow:
+        return fail("failure notifier must notify only failed Release runs")
+    if "workflow_dispatch:" in notify_workflow:
+        return fail("failure notifier must not add workflow_dispatch")
+    required_summary_fields = (
+        "project=${{ github.repository }}",
+        "status=${{ github.event.workflow_run.status }}",
+        "result=${{ github.event.workflow_run.conclusion }}",
+        "failure_title=${{ github.event.workflow_run.name }}",
+        "target_sha=${{ needs.context.outputs.source_sha }}",
+        "run_url=${{ github.event.workflow_run.html_url }}",
+    )
+    if any(field not in notify_workflow for field in required_summary_fields):
+        return fail("failure notifier summary must include complete release failure context")
     return 0
 
 

@@ -10,6 +10,10 @@
   address selection available for documented B-family variants.
 - PD 3.0 GoodCRC encoding is retained as an explicit BMPX opt-in so a downstream
   PPS protocol layer can preserve its existing wire behavior after HIL validation.
+- Release failure handoff uses the immutable Oidrune `notify.yml` release
+  reference `e48822f99c6402a753ed86557ea029754cbab20b`; the caller owns the
+  complete notification summary and no longer forwards a Telegram secret or
+  moving shared-workflow reference.
 
 ## Replacements / Background
 
